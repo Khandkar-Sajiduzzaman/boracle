@@ -1,14 +1,10 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
-import { MongoDBAdapter } from "@auth/mongodb-adapter"
 import { dbConnect } from "@/lib/db"
-import  getMongoClient  from "@/lib/clientdb"
 import UserInfo from "@/models/userInfo"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: MongoDBAdapter(getMongoClient, {
-    databaseName: process.env.MONGODB_DB
-  }), // Use await to ensure connected client
+  // Remove the MongoDB adapter since we're using JWT strategy
   providers: [
     Google({
       clientId: process.env.GOOGLE_ID,
@@ -23,68 +19,77 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
     })
   ],
-  events: {
-    createUser: async ({ user }) => {
-      console.log("User created event triggered:", user);
-      
-      try {
-        // Connect to database
-        await dbConnect();
-        
-        // Check if user profile already exists by email
-        const existingUser = await UserInfo.findOne({ email: user.email });
-        
-        if (!existingUser) {
-          // Create new user profile if none exists
-          const newUserInfo = new UserInfo({
-            email: user.email,
-            name: user.name
-          });
-          
-          await newUserInfo.save();
-          console.log(`Created new UserInfo for: ${user.email}`);
-        }
-      } catch (error) {
-        console.error("Error in createUser event:", error);
-      }
-    }
-  },
   callbacks: {
-    async session({ session, user }) {
-      // Add basic user data
-      session.user.id = user.id;
-      session.user.role = user.role;
-      session.user.image = user.image;
-      session.user.name = user.name;
-      
-      try {
-        // Connect to database
-        await dbConnect();
+    async jwt({ token, user, account, profile }) {
+      // Initial sign-in
+      if (account && profile) {
+        console.log("JWT callback - initial sign-in:", { email: profile.email });
         
-        // Find user profile by email
-        const userProfile = await UserInfo.findOne({ email: user.email });
-        
-        if (userProfile) {
-          // Add custom fields to session
-          session.user.semester = userProfile.semester;
-          session.user.role = userProfile.role;
-        } else {
-          // Create user profile if none exists
-          console.log(`No profile found for ${user.email}, creating one`);
-          const newUserInfo = new UserInfo({
-            email: user.email,
-            name: user.name
-          });
+        try {
+          // Connect to database
+          await dbConnect();
           
-          await newUserInfo.save();
-          session.user.semester = "Spring 2024";
+          // Check if user profile already exists by email
+          let userProfile = await UserInfo.findOne({ email: profile.email });
+          
+          if (!userProfile) {
+            // Create new user profile if none exists
+            userProfile = new UserInfo({
+              email: profile.email,
+              name: profile.name,
+              semester: "Spring 2024",
+              role: "user"
+            });
+            
+            await userProfile.save();
+            console.log(`Created new UserInfo for: ${profile.email}`);
+          }
+          
+          // Add custom information to the token
+          token.id = user.id;
+          token.email = profile.email;
+          token.semester = userProfile.semester;
+          token.role = userProfile.role || "user";
+          
+        } catch (error) {
+          console.error("Error in JWT callback:", error);
         }
-      } catch (error) {
-        console.error("Error in session callback:", error);
+      }
+      
+      return token;
+    },
+    async session({ session, token }) {
+      // Transfer from token to session
+      session.user.id = token.id;
+      session.user.email = token.email;
+      session.user.role = token.role;
+      session.user.semester = token.semester;
+      
+      // For existing sessions, refresh data from database
+      if (!session.user.semester || !session.user.role) {
+        try {
+          // Connect to database
+          await dbConnect();
+          
+          // Find user profile by email
+          const userProfile = await UserInfo.findOne({ email: session.user.email });
+          
+          if (userProfile) {
+            // Update session with latest data
+            session.user.semester = userProfile.semester;
+            session.user.role = userProfile.role || "user";
+          }
+        } catch (error) {
+          console.error("Error refreshing session data:", error);
+        }
       }
       
       return session;
     }
   },
-  debug: true
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  debug: process.env.NODE_ENV === "development"
 })
