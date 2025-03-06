@@ -21,9 +21,6 @@ const userInfoSchema = new mongoose.Schema({
   // Add more fields as needed
 }, { timestamps: true });
 
-// Create index for faster lookups
-userInfoSchema.index({ email: 1 });
-
 // Check if model exists to prevent recompilation during hot reload
 const UserInfo = mongoose.models.UserInfo || mongoose.model('UserInfo', userInfoSchema);
 
