@@ -1,76 +1,85 @@
-import mongoose from "mongoose";
-import { MongoClient } from "mongodb";
+import mongoose from 'mongoose';
+import { MongoClient } from 'mongodb';
 
 const { MONGODB_URI, MONGODB_DB } = process.env;
 
-if (!MONGODB_URI || !MONGODB_DB) {
-  console.error(
-    "MONGODB_URI and MONGODB_DB must be defined in environment variables."
-  );
-  process.exit(1);
+if (!MONGODB_URI) {
+  throw new Error('Please define the MONGODB_URI environment variable');
 }
 
-// MongoDB Native Driver client
-let mongoClient = null;
-// Mongoose connection
-let mongooseConnection = { isConnected: false };
+if (!MONGODB_DB) {
+  throw new Error('Please define the MONGODB_DB environment variable');
+}
 
-/**
- * Get or create MongoDB Native Driver client
- */
+// MongoDB native client for Auth.js adapter
+let client;
+let clientPromise;
+
+if (process.env.NODE_ENV === 'development') {
+  // In development mode, use a global variable to preserve the value
+  if (!global._mongoClientPromise) {
+    client = new MongoClient(MONGODB_URI);
+    global._mongoClientPromise = client.connect();
+  }
+  clientPromise = global._mongoClientPromise;
+} else {
+  // In production mode, it's best to not use a global variable.
+  client = new MongoClient(MONGODB_URI);
+  clientPromise = client.connect();
+}
+
+// Export a function that returns an already-connected client
 export async function getMongoClient() {
-  if (mongoClient) {
-    return mongoClient;
-  }
-  
-  try {
-    mongoClient = new MongoClient(MONGODB_URI, {
-      maxPoolSize: 500,
-    });
-    
-    await mongoClient.connect();
-    console.log("MongoDB Native client connected");
-    
-    // Setup graceful shutdown
-    process.on("SIGINT", async () => {
-      if (mongoClient) {
-        await mongoClient.close();
-        console.log("MongoDB Native client closed due to app termination");
-      }
-      if (mongooseConnection.isConnected) {
-        await mongoose.disconnect();
-        console.log("Mongoose connection disconnected due to app termination");
-      }
-      process.exit(0);
-    });
-    
-    return mongoClient;
-  } catch (error) {
-    console.error("Error connecting to MongoDB with native client", error);
-    process.exit(1);
-  }
+  return clientPromise;
 }
 
-/**
- * Connect to MongoDB using Mongoose (if needed alongside the Native client)
- */
+// Mongoose connection
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
+// Connect to MongoDB with Mongoose
 export async function dbConnect() {
-  if (mongooseConnection.isConnected) {
-    console.log("Using existing Mongoose connection");
-    return;
+  if (cached.conn) {
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
+    const opts = {
+      dbName: MONGODB_DB,
+      // Allow commands to be queued before connection is established
+      bufferCommands: true,
+    };
+
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+      console.log('Connected to MongoDB with Mongoose');
+      return mongoose;
+    });
   }
 
   try {
-    const db = await mongoose.connect(MONGODB_URI, {
-      dbName: MONGODB_DB,
-      bufferCommands: false,
-      maxPoolSize: 500,
-    });
-
-    mongooseConnection.isConnected = db.connections[0].readyState;
-    console.log("New Mongoose connection created");
-  } catch (error) {
-    console.error("Error connecting to database with Mongoose", error);
-    process.exit(1);
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
   }
+
+  return cached.conn;
+}
+
+// Handle graceful shutdown
+if (process.env.NODE_ENV !== 'development') {
+  process.on('SIGINT', async () => {
+    if (cached.conn) {
+      await mongoose.disconnect();
+      console.log('Mongoose disconnected on app termination');
+    }
+    if (client) {
+      await client.close();
+      console.log('MongoDB client closed on app termination');
+    }
+    process.exit(0);
+  });
 }
