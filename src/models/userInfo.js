@@ -2,9 +2,16 @@ import mongoose from 'mongoose';
 
 const userInfoSchema = new mongoose.Schema({
   email: {
+    //G-Suite Email
     type: String,
     required: true,
     unique: true,
+    lowercase: true,
+    trim: true,
+    match: [
+      /^[a-zA-Z0-9._%+-]+@(g\.)?bracu\.ac\.bd$/,
+      "Please use a valid BRACU G-Suite email address",
+    ],
   },
   name: {
     type: String,
@@ -16,7 +23,7 @@ const userInfoSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    default: "peasant",
+    default: "user",
   },
   // Add more fields as needed
 }, { timestamps: true });
