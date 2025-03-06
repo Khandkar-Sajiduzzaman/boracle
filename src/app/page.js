@@ -1,8 +1,11 @@
 import Image from "next/image";
-import SignIn from "./utils/sign-in";
-import SignOut from "./utils/sign-out"; 
+import SignIn from "../components/buttons/sign-in";
+import SignOut from "../components/buttons/sign-out"; 
 import { ModeToggle } from "@/components/light-toggle";
-export default function Home() {
+// get session
+import { auth } from "@/auth"
+export default async function Home() {
+  const session = await auth()
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-8 row-start-2 items-center">
@@ -13,7 +16,9 @@ export default function Home() {
           Euphoria for BRACU Students
         </h3>
         <SignIn />
-        <SignOut />
+
+        {session?.user ? <SignOut /> : null}
+        
       </main>
       <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
         <ModeToggle />
