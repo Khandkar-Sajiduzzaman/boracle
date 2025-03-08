@@ -23,7 +23,7 @@ export default function NavigationBar() {
       <div className="flex justify-center">
         <NavigationMenu>
           <NavigationMenuList>
-            {navbarItems.map((item, index) => (
+            {navbarItems.filter(item => item.enabled !== false).map((item, index) => (
               <NavigationMenuItem key={index}>
                 <Link href={item.href || "#"} legacyBehavior passHref>
                   <NavigationMenuLink className={navigationMenuTriggerStyle()}>

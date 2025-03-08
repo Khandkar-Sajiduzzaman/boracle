@@ -21,7 +21,7 @@ const navbarItems = [
         title: 'Review',
         href: '/faculty-review',
         description: 'Rate your faculty and provide feedback. Scrolling through useless reviews is a thing of the past!',
-        enabled: true
+        enabled: false
     },
     {
         title: "Seat Status",
