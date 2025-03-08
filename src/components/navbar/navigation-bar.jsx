@@ -5,7 +5,8 @@ import navbarItems from "./navbarItems"
 import Link from "next/link"
 import { useSession, signIn, signOut } from "next-auth/react"
 import { LogOut } from "lucide-react"
-
+import ProfileDropdown from "./profileDropdown"
+//TODO: ADD DROPDOWN MENU
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -53,22 +54,7 @@ export default function NavigationBar() {
         <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
 
           {isLoggedIn ? (
-            <div className="flex items-center gap-2">
-              <Button variant="default" asChild>
-                
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex gap-2 items-center dark:text-blue-400 text-blue-900 border-blue-400 dark:border-blue-800"
-                  onClick={() => signOut()}
-                >
-                  <LogOut size={18} />
-                </Button>
-                
-
-
-            </div>
+            <ProfileDropdown />
           ) : (
             <Button 
               variant="outline" 

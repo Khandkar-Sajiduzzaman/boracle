@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider"
 import NavigationBar from "@/components/navbar/navigation-bar";
 import { SessionProvider } from "next-auth/react";
+import { ModeToggle } from "@/components/light-toggle";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +32,9 @@ export default function RootLayout({ children, pageProps = {} }) {
           >
             <NavigationBar />
             {children}
+           <div className="fixed bottom-4 right-4">
+            <ModeToggle />
+          </div>
           </ThemeProvider>
         </SessionProvider>
       </body>
