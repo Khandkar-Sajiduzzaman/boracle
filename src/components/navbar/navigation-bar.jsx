@@ -1,12 +1,11 @@
 "use client"
 
 import * as React from "react"
-import navbarItems from "./navbarItems"
+import navbarItems from "@/constants/navbarItems"
 import Link from "next/link"
 import { useSession, signIn, signOut } from "next-auth/react"
-import { LogOut } from "lucide-react"
 import ProfileDropdown from "./profileDropdown"
-//TODO: ADD DROPDOWN MENU
+
 import {
   NavigationMenu,
   NavigationMenuContent,
