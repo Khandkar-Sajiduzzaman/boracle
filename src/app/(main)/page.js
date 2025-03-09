@@ -1,5 +1,3 @@
-import Image from "next/image";
-import { ModeToggle } from "@/components/light-toggle";
 import FeatureCards from "@/components/homepage/feature-cards";
 import SignInOrDashboard from "@/components/homepage/signAndDashboard";
 
@@ -13,8 +11,8 @@ export default function Home() {
         <h3 className="text-lg text-center">
           Euphoria for BRACU Students
         </h3>
-        <FeatureCards />
         <SignInOrDashboard />
+        <FeatureCards />
       </main>
     </div>
   );
