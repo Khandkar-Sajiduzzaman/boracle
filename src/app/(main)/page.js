@@ -1,5 +1,6 @@
 import FeatureCards from "@/components/homepage/feature-cards";
 import SignInOrDashboard from "@/components/homepage/signAndDashboard";
+import Counts from "@/components/homepage/counts";
 
 export default function Home() {
   return (
@@ -13,6 +14,7 @@ export default function Home() {
         </h3>
         <SignInOrDashboard />
         <FeatureCards />
+        <Counts />
       </main>
     </div>
   );
