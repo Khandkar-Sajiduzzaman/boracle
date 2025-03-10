@@ -10,7 +10,7 @@ import {
   
   export default async function Stats() {
       await dbConnect()
-      const count = await Counts.findOne({})[0] || {swapsPosted: 11, facultyReviews: 21, resourcesSubmitted:21}
+      const count = await Counts.findOne({}) || {swapsPosted: 0, facultyReviews: 0, resourcesSubmitted:0}
       
       return (
           <>
