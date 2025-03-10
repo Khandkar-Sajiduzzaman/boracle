@@ -2,11 +2,12 @@ import FeatureCards from "@/components/homepage/feature-cards";
 import SignInOrDashboard from "@/components/homepage/signAndDashboard";
 import Counts from "@/components/homepage/counts";
 import ServiceStatus from "@/components/homepage/serviceStatus";
+import FooterHome from "@/components/homepage/footer";
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)] dark:bg-slate-900">
-      <main className="flex flex-col gap-8 row-start-2 items-center">
+    <div className="flex flex-col min-h-screen font-[family-name:var(--font-geist-sans)] dark:bg-slate-900">
+      <main className="flex-1 flex flex-col gap-8 items-center justify-center p-8 sm:p-20">
         <h1 className="text-4xl font-bold text-center dark:text-blue-400 text-blue-900">
           BRACU O.R.A.C.L.E
         </h1>
@@ -18,6 +19,7 @@ export default function Home() {
         <Counts />
         <ServiceStatus />
       </main>
+      <FooterHome />
     </div>
   );
 }
