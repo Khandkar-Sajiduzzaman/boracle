@@ -15,7 +15,7 @@ import {
       return (
           <>
               <div className="flex flex-wrap justify-center gap-6">
-                  <Card className="w-64 dark:bg-blue-900 text-white">
+                  <Card className="w-64 dark:bg-blue-900 dark:text-white">
                       <CardHeader>
                           <CardTitle className="text-center">Swaps Posted</CardTitle>
                       </CardHeader>
@@ -27,7 +27,7 @@ import {
                       </CardContent>
                   </Card>
                   
-                  <Card className="w-64 dark:bg-blue-900 text-white">
+                  <Card className="w-64 dark:bg-blue-900 dark:text-white">
                       <CardHeader>
                           <CardTitle className="text-center">Faculty Reviews</CardTitle>
                       </CardHeader>
@@ -39,7 +39,7 @@ import {
                       </CardContent>
                   </Card>
                   
-                  <Card className="w-64 dark:bg-blue-900 text-white">
+                  <Card className="w-64 dark:bg-blue-900 dark:text-white">
                       <CardHeader>
                           <CardTitle className="text-center">Resources Submitted</CardTitle>
                       </CardHeader>
