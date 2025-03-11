@@ -1,4 +1,5 @@
 import { auth } from '@/auth'
+import Welcome from '@/components/dashboard/welcome'
 
 export default async function DashboardPage() {
 
@@ -6,13 +7,12 @@ export default async function DashboardPage() {
  
     if (!session?.user) return (<div>Not Authenticated...</div>)
     else {
-        console.log(session)
+
+        return (
+            <Welcome />
+        )
+        
     }
 
-    return (
-        <div style={{ padding: '20px' }}>
-            <h1>Dashboard</h1>
-            <p>Welcome to your dashboard!</p>
-        </div>
-    );
+
 };
