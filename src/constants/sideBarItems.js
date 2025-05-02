@@ -9,6 +9,13 @@ const navbarItems = [
         enabled: true
     },
     {
+        title: 'PrePreReg',
+        href: '/preprereg',
+        description: 'The PrePreReg we love is now in Oracle! Build your routine with ease and get the best possible schedule based on live data',
+        icon: Home,
+        enabled: true
+    },
+    {
         title: 'Changelog',
         href: '/changelog',
         description: 'Updates and changes to the Oracle platform',
