@@ -1,4 +1,4 @@
-import { Home,Sigma,Star,ChevronsLeftRightEllipsis,Calendar } from "lucide-react"
+import { Home,Sigma,Star,ChevronsLeftRightEllipsis,Hammer } from "lucide-react"
 
 const navbarItems = [
     {
@@ -12,14 +12,7 @@ const navbarItems = [
         title: 'PrePreReg',
         href: '/preprereg',
         description: 'The PrePreReg we love is now in Oracle! Build your routine with ease and get the best possible schedule based on live data',
-        icon: Home,
-        enabled: true
-    },
-    {
-        title: 'Changelog',
-        href: '/changelog',
-        description: 'Updates and changes to the Oracle platform',
-        icon: Calendar,
+        icon: Hammer,
         enabled: true
     },
     {

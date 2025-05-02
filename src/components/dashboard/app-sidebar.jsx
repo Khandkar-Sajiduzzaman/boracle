@@ -19,15 +19,15 @@ import navbarItems from "@/constants/sideBarItems"
 export function AppSidebar() {
 
   return (
-    <Sidebar>
-      <SidebarContent>
+    <Sidebar >
+      <SidebarContent className="dark:bg-slate-950">
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
+        <SidebarGroupLabel className="text-gray-200 text-md font-semibold">Applications</SidebarGroupLabel>
+          <SidebarGroupContent >
+            <SidebarMenu className="pt-3">
               {navbarItems.filter(item => item.enabled !== false).map((item,index) => (
-                <SidebarMenuItem key={index}>
-                  <SidebarMenuButton asChild isActive>
+                <SidebarMenuItem key={index} className="pt-1">
+                  <SidebarMenuButton asChild isActive className="dark:bg-blue-950 rounded-sm ">
                     <a href={item.href || "#"}>
                       <item.icon />
                       <span>{item.title}</span>
