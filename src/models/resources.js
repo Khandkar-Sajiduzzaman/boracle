@@ -28,7 +28,7 @@ const resourceSchema = new mongoose.Schema({
         required: true,
         match: [/^[a-zA-Z0-9._%+-]+@(g\.)?bracu\.ac\.bd$/, "Please use a valid BRACU G-Suite email address"]
     }
-})
+}, { timestamps: true });
 
 const Resource = mongoose.models.Resource || mongoose.model("Resource", resourceSchema);
 export default Resource;

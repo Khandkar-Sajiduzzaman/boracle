@@ -29,6 +29,6 @@ const userInfoSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Check if model exists to prevent recompilation during hot reload
-const UserInfo = mongoose.models.UserInfo || mongoose.model('UserInfo', userInfoSchema);
+const User = mongoose.models.User || mongoose.model('User', userInfoSchema);
 
-export default UserInfo;
+export default User;
