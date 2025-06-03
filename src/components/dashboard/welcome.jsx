@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import RandomQuote from "@/components/dashboard/randomQuote";
 
 export default async function Welcome() {
  try {
@@ -6,7 +7,7 @@ export default async function Welcome() {
     const firstName = session?.user?.name ? session.user.name.split(" ")[0] : "";
     
     return (
-        <div className="w-full flex flex-col gap-8 dark:bg-slate-900"> {/* Changed to flex-col */}
+        <div className="w-full flex flex-col items-center gap-8 dark:bg-slate-900">
             <div className="w-full pt-7">
                 <div className="w-full text-center px-4">
                     <h1 className="text-4xl font-bold mb-4">
@@ -18,12 +19,8 @@ export default async function Welcome() {
             </div>
 
             {/* Dashboard stats section */}
-            <div className="w-full">
-                <div className="w-full text-center px-4">
-                    <h2 className="text-2xl font-semibold mb-4">Your Stats</h2>
-                    <p className="text-lg">TODO</p>
-                    {/* Add more dashboard content here */}
-                </div>
+            <div className="w-1/3 flex justify-center">
+                <RandomQuote />
             </div>
         </div>
     );
