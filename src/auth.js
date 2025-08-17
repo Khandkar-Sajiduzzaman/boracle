@@ -29,7 +29,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // Check if user profile already exists by email
           let userProfile = await sql`SELECT * FROM userinfo WHERE email = ${profile.email}`;
 
-          if (!userProfile) {
+          if (userProfile.length === 0) {
             // Create new user profile if none exists
             userProfile = await sql`
               INSERT INTO userinfo (name, email, role)
@@ -43,8 +43,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // Add custom information to the token
           token.id = user.id;
           token.email = profile.email;
-          token.semester = userProfile.semester;
-          token.role = userProfile.role || "user";
+          token.semester = userProfile[0].semester;
+          token.role = userProfile[0].role || "user";
           
         } catch (error) {
           console.error("Error in JWT callback:", error);
@@ -66,11 +66,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           
           // Find user profile by email
           const userProfile = await sql`SELECT * FROM userinfo WHERE email = ${session.user.email}`;
+          console.log("Found user profile:", userProfile[0]);
 
-          if (userProfile) {
+          if (userProfile.length > 0) {
             // Update session with latest data
-            session.user.semester = userProfile.enrolled_sem;
-            session.user.role = userProfile.role || "student";
+            session.user.semester = userProfile[0].enrolled_sem;
+            session.user.role = userProfile[0].role || "student";
           }
         } catch (error) {
           console.error("Error refreshing session data:", error);
