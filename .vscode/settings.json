@@ -1,0 +1,13 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5439,
+            "askForPassword": true,
+            "driver": "Redshift Driver (Dedicated ver)",
+            "name": "supabase",
+            "connectString": "postgresql://postgres.fnnehcogmdgizxeepmod:boratNOToracle@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
+        }
+    ]
+}

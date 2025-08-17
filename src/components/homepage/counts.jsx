@@ -6,11 +6,11 @@ import {
   } from "@/components/ui/card"
   
   import Counts from "@/models/counts"
-  import { dbConnect } from "@/lib/db"
+//   import { dbConnect } from "@/lib/db"
   
   export default async function Stats() {
-      await dbConnect()
-      const count = await Counts.findOne({}) || {swapsPosted: 0, facultyReviews: 0, resourcesSubmitted:0}
+    //   await dbConnect()
+      const count =  {swapsPosted: 0, facultyReviews: 0, resourcesSubmitted:0}
       
       return (
           <>

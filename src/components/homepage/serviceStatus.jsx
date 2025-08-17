@@ -5,15 +5,16 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
-import { dbConnect } from "@/lib/db"
+// import { dbConnect } from "@/lib/db"
 import Service from "@/models/services"
 import { CircleCheckBig, XCircle } from "lucide-react"
 
 export default async function ServiceStatus() {
     let services = []
     try {
-        await dbConnect()
-        services = await Service.find({})
+        // await dbConnect()
+        // services = await Service.find({})
+        services = []
         console.log("Services fetched:", services)
     } catch (error) {
         console.error("Failed to fetch services:", error)

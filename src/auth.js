@@ -1,7 +1,6 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
-import { dbConnect } from "@/lib/db"
-import UserInfo from "@/models/userInfo"
+import { sql } from '@/lib/pgdb';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // Remove the MongoDB adapter since we're using JWT strategy
@@ -26,22 +25,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         console.log("JWT callback - initial sign-in:", { email: profile.email });
         
         try {
-          // Connect to database
-          await dbConnect();
           
           // Check if user profile already exists by email
-          let userProfile = await UserInfo.findOne({ email: profile.email });
-          
+          let userProfile = await sql`SELECT * FROM userinfo WHERE email = ${profile.email}`;
+
           if (!userProfile) {
             // Create new user profile if none exists
-            userProfile = new UserInfo({
-              email: profile.email,
-              name: profile.name,
-              semester: "Spring 2024",
-              role: "user"
-            });
-            
-            await userProfile.save();
+            userProfile = await sql`
+              INSERT INTO userinfo (name, email, role)
+              VALUES (${profile.name}, ${profile.email}, 'student')
+              RETURNING *;
+            `;
+            console.log("Created new UserInfo:", userProfile);
             console.log(`Created new UserInfo for: ${profile.email}`);
           }
           
@@ -68,16 +63,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // For existing sessions, refresh data from database
       if (!session.user.semester || !session.user.role) {
         try {
-          // Connect to database
-          await dbConnect();
           
           // Find user profile by email
-          const userProfile = await UserInfo.findOne({ email: session.user.email });
-          
+          const userProfile = await sql`SELECT * FROM userinfo WHERE email = ${session.user.email}`;
+
           if (userProfile) {
             // Update session with latest data
-            session.user.semester = userProfile.semester;
-            session.user.role = userProfile.role || "user";
+            session.user.semester = userProfile.enrolled_sem;
+            session.user.role = userProfile.role || "student";
           }
         } catch (error) {
           console.error("Error refreshing session data:", error);

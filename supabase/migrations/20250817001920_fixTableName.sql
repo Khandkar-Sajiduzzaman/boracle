@@ -1,0 +1,1 @@
+alter table userInfo rename to userinfo;
