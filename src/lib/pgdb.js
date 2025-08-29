@@ -1,5 +1,6 @@
 // lib/pgdb.js
 import { Pool } from 'pg';
+import 'dotenv/config'
 
 const NODE_ENV = process.env.NODE_ENV;
 
