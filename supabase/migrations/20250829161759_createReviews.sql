@@ -5,7 +5,7 @@ CREATE TYPE review_state AS ENUM ('pending', 'published', 'rejected');
 CREATE TABLE reviews (
     reviewID UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     facultyID UUID NOT NULL,
-    uEmail TEXT NOT NULL,
+    uEmail TEXT  NOT NULL DEFAULT 'deleted@g.bracu.ac.bd',
     isAnon BOOLEAN NOT NULL DEFAULT false,
     semester TEXT NOT NULL,
     behaviourRating INTEGER NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE reviews (
     courseCode TEXT NOT NULL,
     reviewDescription TEXT,
     postState review_state NOT NULL DEFAULT 'pending',
-    createdAt TIMESTAMPTZ DEFAULT NOW(),
+    createdAt BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
     
     -- Foreign key constraints
     CONSTRAINT fk_faculty 
@@ -27,7 +27,7 @@ CREATE TABLE reviews (
     CONSTRAINT fk_user_email_review
         FOREIGN KEY (uEmail) 
         REFERENCES userinfo(email) 
-        ON DELETE SET NULL 
+        ON DELETE SET DEFAULT 
         ON UPDATE CASCADE,
     
     -- Check constraints
