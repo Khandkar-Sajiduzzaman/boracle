@@ -105,11 +105,11 @@ export default function RecentActivity() {
   return (
     <div className="w-full max-w-6xl mx-auto px-4">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-          Recent Activity
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 text-center">
+          Recent Activities
         </h2>
-        <p className="text-gray-600 dark:text-gray-400">
-          Your latest contributions to the BRACU Oracle community
+        <p className="text-gray-600 dark:text-gray-400 text-center">
+          Your latest contributions to the O.R.A.C.L.E community
         </p>
       </div>
 

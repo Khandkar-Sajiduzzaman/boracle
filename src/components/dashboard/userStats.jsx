@@ -138,12 +138,6 @@ export default function UserStats() {
         })}
       </div>
       
-      {/* Additional info */}
-      <div className="mt-6 text-center">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Stats update in real-time as you interact with the platform
-        </p>
-      </div>
     </div>
   );
 }
