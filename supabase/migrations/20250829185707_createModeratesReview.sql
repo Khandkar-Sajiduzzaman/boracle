@@ -14,7 +14,7 @@ CREATE TABLE moderatesReview (
         FOREIGN KEY (reviewID) 
         REFERENCES reviews(reviewID) 
         ON DELETE CASCADE
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
 
     CONSTRAINT fk_moderator_email
         FOREIGN KEY (moderatorEmail) 
