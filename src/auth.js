@@ -43,8 +43,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // Add custom information to the token
           token.id = user.id;
           token.email = profile.email;
-          token.semester = userProfile[0].semester;
-          token.role = userProfile[0].role || "user";
+          token.role = userProfile[0].role || "student";
           
         } catch (error) {
           console.error("Error in JWT callback:", error);
