@@ -19,6 +19,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     })
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (!profile.email?.endsWith('@g.bracu.ac.bd')) {
+        console.log("Non-BRACU email attempted:", profile.email);
+        return false;
+      }
+      return true;
+    },
+
     async jwt({ token, user, account, profile }) {
       // Initial sign-in
       if (account && profile) {
@@ -32,7 +40,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (userProfile.length === 0) {
             // Create new user profile if none exists
             userProfile = await sql`
-              INSERT INTO userinfo (name, email, role)
+              INSERT INTO userinfo (userName, email, userRole)
               VALUES (${profile.name}, ${profile.email}, 'student')
               RETURNING *;
             `;
@@ -40,10 +48,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             console.log(`Created new UserInfo for: ${profile.email}`);
           }
           
-          // Add custom information to the token
-          token.id = user.id;
+          token.id = profile.sub;
           token.email = profile.email;
-          token.role = userProfile[0].role || "student";
+          token.name = profile.name;
+          token.userRole = userProfile[0].userrole;
           
         } catch (error) {
           console.error("Error in JWT callback:", error);
@@ -54,10 +62,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       // Transfer from token to session
-      session.user.id = token.id;
-      session.user.email = token.email;
-      session.user.role = token.role;
-      session.user.semester = token.semester;
+      if (session?.user) {
+        session.user.id = token.id;
+        session.user.email = token.email;
+        session.user.name = token.name;
+        session.user.role = token.userRole || 'student';
+      }
       
       // For existing sessions, refresh data from database
       if (!session.user.semester || !session.user.role) {
@@ -84,5 +94,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     strategy: "jwt",
     maxAge: 1 * 24 * 60 * 60, // 1 days
   },
+  secret: process.env.AUTH_SECRET,
   debug: process.env.NODE_ENV === "development"
 })
