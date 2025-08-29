@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const userInfoSchema = new mongoose.Schema({
+  
   email: {
     //G-Suite Email
     type: String,
@@ -24,6 +25,10 @@ const userInfoSchema = new mongoose.Schema({
   role: {
     type: String,
     default: "user",
+  },
+  courses: {
+    type: [String], // Array of course IDs or names
+    default: [],
   },
   // Add more fields as needed
 }, { timestamps: true });
