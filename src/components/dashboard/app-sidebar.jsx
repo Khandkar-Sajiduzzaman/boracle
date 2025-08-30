@@ -1,6 +1,6 @@
 "use client"
 
-import { Home,Sigma,Star,ChevronsLeftRightEllipsis,Calendar, Settings, LogOut } from "lucide-react"
+import { Home,Sigma,Star,ChevronsLeftRightEllipsis,Calendar, Settings, LogOut, BookOpen, Users } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
  
 import {
@@ -16,10 +16,53 @@ import {
   SidebarFooter,
   useSidebar
 } from "@/components/ui/sidebar"
-import navbarItems from "@/constants/sideBarItems"
+import sidebarGroups from "@/constants/sideBarItems"
+import sidebarAdminGroups from "@/constants/sideBarAdminItems"
 
 export function AppSidebar() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
+  
+  // Get user role from session - handle both 'role' and 'userrole' properties
+  const userRole = session?.user?.userrole?.toLowerCase()
+  const isAdmin = userRole === 'admin'
+  const isModerator = userRole === 'moderator'
+  const hasAdminAccess = isAdmin || isModerator
+
+  // Debug log to check session structure
+  console.log('Session status:', status)
+  console.log('Session:', session)
+  console.log('Session user:', session?.user)
+  console.log('User role detected:', userRole)
+  console.log('Is admin:', isAdmin)
+  console.log('Has admin access:', hasAdminAccess)
+
+  // Filter admin items based on user role - only if session is loaded
+  const getFilteredAdminGroups = () => {
+    if (status === "loading" || !hasAdminAccess) return []
+    
+    return sidebarAdminGroups.map(group => ({
+      ...group,
+      items: group.items.filter(item => {
+        if (!item.enabled) return false
+        
+        // If forAdminOnly is true, only show to admins
+        if (item.forAdminOnly === true) {
+          return isAdmin
+        }
+        
+        // If forAdminOnly is false, show to both admins and moderators
+        if (item.forAdminOnly === false) {
+          return hasAdminAccess
+        }
+        
+        // Default: show to admins only
+        return isAdmin
+      })
+    })).filter(group => group.items.length > 0) // Remove empty groups
+  }
+
+  const filteredAdminGroups = getFilteredAdminGroups()
+  const allGroups = [...sidebarGroups, ...filteredAdminGroups]
 
   return (
     <Sidebar collapsible="icon" className="border-r border-gray-200 dark:border-gray-800">
@@ -36,37 +79,51 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="bg-white dark:bg-gray-950 px-2 py-4 group-data-[collapsible=icon]:px-5">
+        {allGroups.map((group, groupIndex) => (
+          <SidebarGroup key={groupIndex}>
+            <SidebarGroupLabel className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+              {group.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-1">
+                {group.items.filter(item => item.enabled !== false).map((item, index) => (
+                  <SidebarMenuItem key={index}>
+                    <SidebarMenuButton 
+                      asChild 
+                      className="w-full hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 rounded-lg px-3 py-2.5 transition-all duration-200 group data-[active=true]:bg-blue-600 data-[active=true]:text-white dark:data-[active=true]:bg-blue-600 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+                      tooltip={item.title}
+                    >
+                      <a href={item.href || "#"} className="flex items-center gap-3">
+                        <item.icon className="h-5 w-5 shrink-0 group-data-[active=true]:text-white" />
+                        <span className="font-medium text-sm">{item.title}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+        
+        {/* Settings Group - Always show for authenticated users */}
         <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+            Settings
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
-              {navbarItems.filter(item => item.enabled !== false).map((item, index) => (
-                <SidebarMenuItem key={index}>
-                  <SidebarMenuButton 
-                    asChild 
-                    className="w-full hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 rounded-lg px-3 py-2.5 transition-all duration-200 group data-[active=true]:bg-blue-600 data-[active=true]:text-white dark:data-[active=true]:bg-blue-600 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
-                    tooltip={item.title}
-                  >
-                    <a href={item.href || "#"} className="flex items-center gap-3">
-                      <item.icon className="h-5 w-5 shrink-0 group-data-[active=true]:text-white" />
-                      <span className="font-medium text-sm">{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-              
-              {/* Settings in main menu
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild 
                   className="w-full hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 rounded-lg px-3 py-2.5 transition-all duration-200 group data-[active=true]:bg-blue-600 data-[active=true]:text-white dark:data-[active=true]:bg-blue-600 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
                   tooltip="Settings"
                 >
-                  <a href="/settings" className="flex items-center gap-3">
+                  <a href="/dashboard/settings" className="flex items-center gap-3">
                     <Settings className="h-5 w-5 shrink-0 group-data-[active=true]:text-white" />
                     <span className="font-medium text-sm">Settings</span>
                   </a>
                 </SidebarMenuButton>
-              </SidebarMenuItem> */}
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -94,7 +151,7 @@ export function AppSidebar() {
             
             {/* Logout Button */}
             <SidebarMenuButton 
-              onClick={() => signOut()}
+              onClick={() => signOut({ callbackUrl: '/' })}
               className="w-full hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300 rounded-lg px-3 py-2.5 transition-all duration-200 cursor-pointer group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
               tooltip="Sign Out"
             >
