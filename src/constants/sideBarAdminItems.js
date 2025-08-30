@@ -1,4 +1,4 @@
-import { Home,Sigma,Star,ChevronsLeftRightEllipsis,Hammer, Settings, BookOpen, Users } from "lucide-react"
+import { Home,Sigma,FileCheck2,Users, DatabaseZap } from "lucide-react"
 
 const sidebarAdminGroups = [
     {
@@ -8,7 +8,7 @@ const sidebarAdminGroups = [
                 title: 'Manage Users',
                 href: '/dashboard/manage-users',
                 description: 'Delete, Edit, Update or Promote Users',
-                icon: Home,
+                icon: Users,
                 enabled: true,
                 forAdminOnly: true
             },
@@ -16,7 +16,7 @@ const sidebarAdminGroups = [
                 title: 'Data Import',
                 href: '/dashboard/data-import',
                 description: 'Import data from various sources',
-                icon: Users,
+                icon: DatabaseZap,
                 enabled: true,
                 forAdminOnly: true
             }
@@ -29,7 +29,7 @@ const sidebarAdminGroups = [
                 title: 'Posts',
                 href: '/dashboard/manage-posts',
                 description: 'Manage and moderate pending and approved posts from users',
-                icon: Sigma,
+                icon: FileCheck2,
                 enabled: true,
                 forAdminOnly: false
             }
