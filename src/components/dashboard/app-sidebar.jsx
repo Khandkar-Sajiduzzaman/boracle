@@ -54,7 +54,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
               
-              {/* Settings in main menu */}
+              {/* Settings in main menu
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild 
@@ -66,7 +66,7 @@ export function AppSidebar() {
                     <span className="font-medium text-sm">Settings</span>
                   </a>
                 </SidebarMenuButton>
-              </SidebarMenuItem>
+              </SidebarMenuItem> */}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
