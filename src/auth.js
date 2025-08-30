@@ -1,7 +1,6 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
-import { dbConnect } from "@/lib/db"
-import UserInfo from "@/models/userInfo"
+import { sql } from '@/lib/pgdb';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // Remove the MongoDB adapter since we're using JWT strategy
@@ -20,36 +19,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     })
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (!profile.email?.endsWith('@g.bracu.ac.bd')) {
+        console.log("Non-BRACU email attempted:", profile.email);
+        return false;
+      }
+      return true;
+    },
+
     async jwt({ token, user, account, profile }) {
       // Initial sign-in
       if (account && profile) {
         console.log("JWT callback - initial sign-in:", { email: profile.email });
         
         try {
-          // Connect to database
-          await dbConnect();
           
           // Check if user profile already exists by email
-          let userProfile = await UserInfo.findOne({ email: profile.email });
-          
-          if (!userProfile) {
+          let userProfile = await sql`SELECT * FROM userinfo WHERE email = ${profile.email}`;
+
+          if (userProfile.length === 0) {
             // Create new user profile if none exists
-            userProfile = new UserInfo({
-              email: profile.email,
-              name: profile.name,
-              semester: "Spring 2024",
-              role: "user"
-            });
-            
-            await userProfile.save();
+            userProfile = await sql`
+              INSERT INTO userinfo (userName, email, userRole)
+              VALUES (${profile.name}, ${profile.email}, 'student')
+              RETURNING *;
+            `;
+            console.log("Created new UserInfo:", userProfile);
             console.log(`Created new UserInfo for: ${profile.email}`);
           }
           
-          // Add custom information to the token
-          token.id = user.id;
+          token.id = profile.sub;
           token.email = profile.email;
-          token.semester = userProfile.semester;
-          token.role = userProfile.role || "user";
+          token.name = profile.name;
+          token.userRole = userProfile[0].userrole;
           
         } catch (error) {
           console.error("Error in JWT callback:", error);
@@ -60,24 +62,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       // Transfer from token to session
-      session.user.id = token.id;
-      session.user.email = token.email;
-      session.user.role = token.role;
-      session.user.semester = token.semester;
+      if (session?.user) {
+        session.user.id = token.id;
+        session.user.email = token.email;
+        session.user.name = token.name;
+        session.user.role = token.userRole || 'student';
+      }
       
       // For existing sessions, refresh data from database
       if (!session.user.semester || !session.user.role) {
         try {
-          // Connect to database
-          await dbConnect();
           
           // Find user profile by email
-          const userProfile = await UserInfo.findOne({ email: session.user.email });
-          
-          if (userProfile) {
+          const userProfile = await sql`SELECT * FROM userinfo WHERE email = ${session.user.email}`;
+          console.log("Found user profile:", userProfile[0]);
+
+          if (userProfile.length > 0) {
             // Update session with latest data
-            session.user.semester = userProfile.semester;
-            session.user.role = userProfile.role || "user";
+            session.user.semester = userProfile[0].enrolled_sem;
+            session.user.role = userProfile[0].role || "student";
           }
         } catch (error) {
           console.error("Error refreshing session data:", error);
@@ -91,5 +94,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     strategy: "jwt",
     maxAge: 1 * 24 * 60 * 60, // 1 days
   },
+  secret: process.env.AUTH_SECRET,
   debug: process.env.NODE_ENV === "development"
 })
