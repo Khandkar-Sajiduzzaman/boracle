@@ -1,6 +1,19 @@
 import { Home,Sigma,FileCheck2,Users, DatabaseZap } from "lucide-react"
 
 const sidebarAdminGroups = [
+        {
+        label: "Moderation",
+        items: [
+            {
+                title: 'Posts',
+                href: '/dashboard/manage-posts',
+                description: 'Manage and moderate pending and approved posts from users',
+                icon: FileCheck2,
+                enabled: true,
+                forAdminOnly: false
+            }
+        ]
+    },
     {
         label: "Admin",
         items: [
@@ -22,19 +35,7 @@ const sidebarAdminGroups = [
             }
         ]
     },
-    {
-        label: "Moderation",
-        items: [
-            {
-                title: 'Posts',
-                href: '/dashboard/manage-posts',
-                description: 'Manage and moderate pending and approved posts from users',
-                icon: FileCheck2,
-                enabled: true,
-                forAdminOnly: false
-            }
-        ]
-    },
+
 
 ]
 

@@ -73,7 +73,7 @@ export function AppSidebar() {
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
             <h2 className="font-semibold text-gray-900 dark:text-white text-sm">O.R.A.C.L.E</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">BRACU Portal</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Student Portal</p>
           </div>
         </div>
       </SidebarHeader>
