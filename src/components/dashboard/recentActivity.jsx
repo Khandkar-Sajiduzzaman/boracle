@@ -4,12 +4,28 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { FileText, MessageSquare, Calendar, ExternalLink, User, BookOpen } from "lucide-react";
+import { FileText, MessageSquare, Calendar, ExternalLink, User, BookOpen, Clock } from "lucide-react";
 
 export default function RecentActivity() {
   const [activities, setActivities] = useState(null);
+  const [facultyData, setFacultyData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Helper function to fetch faculty information
+  const fetchFacultyInfo = async (facultyId) => {
+    try {
+      const response = await fetch(`/api/faculty/${facultyId}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch faculty ${facultyId}`);
+      }
+      const faculty = await response.json();
+      return faculty;
+    } catch (err) {
+      console.error(`Error fetching faculty ${facultyId}:`, err);
+      return null;
+    }
+  };
 
   useEffect(() => {
     const fetchRecentActivity = async () => {
@@ -23,6 +39,25 @@ export default function RecentActivity() {
         
         const data = await response.json();
         setActivities(data.recentActivities);
+
+        // Fetch faculty information for reviews
+        if (data.recentActivities?.reviews) {
+          const facultyPromises = data.recentActivities.reviews.map(review => 
+            fetchFacultyInfo(review.facultyid)
+          );
+          
+          const facultyResults = await Promise.all(facultyPromises);
+          
+          // Create a map of facultyId to faculty data
+          const facultyMap = {};
+          data.recentActivities.reviews.forEach((review, index) => {
+            if (facultyResults[index]) {
+              facultyMap[review.facultyid] = facultyResults[index];
+            }
+          });
+          
+          setFacultyData(facultyMap);
+        }
       } catch (err) {
         console.error('Error fetching recent activity:', err);
         setError(err.message);
@@ -150,7 +185,7 @@ export default function RecentActivity() {
                             {formatDate(material.createdat)}
                           </div>
                           <div className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
+                            <Clock className="h-3 w-3" />
                             {material.semester}
                           </div>
                         </div>
@@ -161,8 +196,6 @@ export default function RecentActivity() {
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
                       >
-                        <ExternalLink className="h-3 w-3" />
-                        View
                       </a>
                     </div>
                   </div>
@@ -196,19 +229,29 @@ export default function RecentActivity() {
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <BookOpen className="h-4 w-4 text-gray-500" />
-                          <span className="font-semibold text-gray-900 dark:text-gray-100">
+                        {/* Faculty Information - Main Heading */}
+                        {facultyData[review.facultyid] && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <BookOpen className="h-4 w-4 text-gray-500" />
+                            <span className="font-semibold text-gray-900 dark:text-gray-100">
+                              {facultyData[review.facultyid].initials?.join('/') || 'N/A'} - {facultyData[review.facultyid].facultyname}
+                            </span>
+                            <Badge className={getStatusColor(review.poststate)}>
+                              {review.poststate}
+                            </Badge>
+                            {review.isanon && (
+                              <Badge variant="outline" className="text-xs">
+                                Anonymous
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Course and Section - Subheading */}
+                        <div className="mb-2">
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             {review.coursecode} - Section {review.section}
                           </span>
-                          <Badge className={getStatusColor(review.poststate)}>
-                            {review.poststate}
-                          </Badge>
-                          {review.isanon && (
-                            <Badge variant="outline" className="text-xs">
-                              Anonymous
-                            </Badge>
-                          )}
                         </div>
                         
                         <p className="text-gray-700 dark:text-gray-300 mb-3">
@@ -242,7 +285,7 @@ export default function RecentActivity() {
                             {formatDate(review.createdat)}
                           </div>
                           <div className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
+                            <Clock className="h-3 w-3" />
                             {review.semester}
                           </div>
                         </div>
