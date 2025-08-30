@@ -51,7 +51,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.id = profile.sub;
           token.email = profile.email;
           token.name = profile.name;
-          token.userRole = userProfile[0].userrole;
+          token.userrole = userProfile[0].userrole; // Keep consistent with database column name
+          token.createdat = userProfile[0].createdat;
           
         } catch (error) {
           console.error("Error in JWT callback:", error);
@@ -66,11 +67,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id;
         session.user.email = token.email;
         session.user.name = token.name;
-        session.user.role = token.userRole || 'student';
+        session.user.userrole = token.userrole || 'student'; // Keep consistent with database
+
       }
       
       // For existing sessions, refresh data from database
-      if (!session.user.semester || !session.user.role) {
+      if (!session.user.userrole) {
         try {
           
           // Find user profile by email
@@ -79,8 +81,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           if (userProfile.length > 0) {
             // Update session with latest data
-            session.user.semester = userProfile[0].enrolled_sem;
-            session.user.role = userProfile[0].role || "student";
+            session.user.userrole = userProfile[0].userrole || "student";
+
           }
         } catch (error) {
           console.error("Error refreshing session data:", error);
