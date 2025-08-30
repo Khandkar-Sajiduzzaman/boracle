@@ -28,13 +28,13 @@ export function AppSidebar() {
   const isModerator = userRole === 'moderator'
   const hasAdminAccess = isAdmin || isModerator
 
-  // Debug log to check session structure
-  console.log('Session status:', status)
-  console.log('Session:', session)
-  console.log('Session user:', session?.user)
-  console.log('User role detected:', userRole)
-  console.log('Is admin:', isAdmin)
-  console.log('Has admin access:', hasAdminAccess)
+  // // Debug log to check session structure
+  // console.log('Session status:', status)
+  // console.log('Session:', session)
+  // console.log('Session user:', session?.user)
+  // console.log('User role detected:', userRole)
+  // console.log('Is admin:', isAdmin)
+  // console.log('Has admin access:', hasAdminAccess)
 
   // Filter admin items based on user role - only if session is loaded
   const getFilteredAdminGroups = () => {
@@ -78,7 +78,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="bg-white dark:bg-gray-950 px-2 py-4 group-data-[collapsible=icon]:px-5">
+      <SidebarContent className="bg-white dark:bg-gray-950 px-2 py-4 group-data-[collapsible=icon]:px-2">
         {allGroups.map((group, groupIndex) => (
           <SidebarGroup key={groupIndex}>
             <SidebarGroupLabel className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
@@ -90,7 +90,7 @@ export function AppSidebar() {
                   <SidebarMenuItem key={index}>
                     <SidebarMenuButton 
                       asChild 
-                      className="w-full hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 rounded-lg px-3 py-2.5 transition-all duration-200 group data-[active=true]:bg-blue-600 data-[active=true]:text-white dark:data-[active=true]:bg-blue-600 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+                      className="w-full hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 rounded-lg px-3 py-2.5 transition-all duration-200 group data-[active=true]:bg-blue-600 data-[active=true]:text-white dark:data-[active=true]:bg-blue-600 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                       tooltip={item.title}
                     >
                       <a href={item.href || "#"} className="flex items-center gap-3">
@@ -105,28 +105,6 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
         
-        {/* Settings Group - Always show for authenticated users */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-            Settings
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild 
-                  className="w-full hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 rounded-lg px-3 py-2.5 transition-all duration-200 group data-[active=true]:bg-blue-600 data-[active=true]:text-white dark:data-[active=true]:bg-blue-600 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
-                  tooltip="Settings"
-                >
-                  <a href="/dashboard/settings" className="flex items-center gap-3">
-                    <Settings className="h-5 w-5 shrink-0 group-data-[active=true]:text-white" />
-                    <span className="font-medium text-sm">Settings</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 group-data-[collapsible=icon]:px-2">
@@ -152,7 +130,7 @@ export function AppSidebar() {
             {/* Logout Button */}
             <SidebarMenuButton 
               onClick={() => signOut({ callbackUrl: '/' })}
-              className="w-full hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300 rounded-lg px-3 py-2.5 transition-all duration-200 cursor-pointer group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+              className="w-full hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300 rounded-lg px-3 py-2.5 transition-all duration-200 cursor-pointer group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
               tooltip="Sign Out"
             >
               <div className="flex items-center gap-3">
