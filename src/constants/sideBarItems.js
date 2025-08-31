@@ -1,4 +1,4 @@
-import { Home,Sigma,Star,ChevronsLeftRightEllipsis,Hammer, Settings, BookOpen, Users } from "lucide-react"
+import { Home,Sigma,Star,ChevronsLeftRightEllipsis,Hammer, Cable, BookOpen, Users } from "lucide-react"
 
 const sidebarGroups = [
     {
@@ -31,10 +31,10 @@ const sidebarGroups = [
                 enabled: true
             },
             {
-                title: "Seat Status",
-                href: '/dashboard/seat-status',
-                description: 'Get live updates on seat status for all courses. No more countless refreshes to know if you got in or not!',
-                icon: Sigma,
+                title: "Merge Routines",
+                href: '/dashboard/merge-routines',
+                description: 'Merge multiple course routines into one optimized schedule. Perfect for group studies and project collaborations!',
+                icon: Cable,
                 enabled: true
             }
         ]
