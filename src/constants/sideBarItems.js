@@ -58,6 +58,18 @@ const sidebarGroups = [
             }
         ]
     },
+    {
+        label: "Your Arena",
+        items: [
+            {
+                title: 'Saved Routines',
+                href: '/dashboard/savedRoutines',
+                description: 'View and manage your saved course routines',
+                icon: Users,
+                enabled: true
+            }
+        ]
+    }
     // {
     //     label: "Settings",
     //     items: [
