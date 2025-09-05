@@ -30,13 +30,6 @@ export function AppSidebar() {
   const isModerator = userRole === 'moderator'
   const hasAdminAccess = isAdmin || isModerator
 
-  // // Debug log to check session structure
-  // console.log('Session status:', status)
-  // console.log('Session:', session)
-  // console.log('Session user:', session?.user)
-  // console.log('User role detected:', userRole)
-  // console.log('Is admin:', isAdmin)
-  // console.log('Has admin access:', hasAdminAccess)
 
   // Filter admin items based on user role - only if session is loaded
   const getFilteredAdminGroups = () => {

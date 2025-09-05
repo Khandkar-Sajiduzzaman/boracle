@@ -1,4 +1,4 @@
-import { Home,Sigma,Star,ChevronsLeftRightEllipsis,Hammer, Cable, BookOpen, Users } from "lucide-react"
+import { Home,Sigma,Star,ChevronsLeftRightEllipsis,Hammer, Cable, BookOpen, Users, ArrowRightLeft } from "lucide-react"
 
 const sidebarGroups = [
     {
@@ -66,6 +66,13 @@ const sidebarGroups = [
                 href: '/dashboard/savedRoutines',
                 description: 'View and manage your saved course routines',
                 icon: Users,
+                enabled: true
+            },
+            {
+                title: 'Your Swaps',
+                href: '/dashboard/yourSwaps',
+                description: 'View and manage your course swap requests',
+                icon: ArrowRightLeft,
                 enabled: true
             }
         ]
