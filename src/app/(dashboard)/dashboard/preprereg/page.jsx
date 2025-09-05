@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Search, Filter, Plus, Calendar, Clock, X, Users, BookOpen, Download, Save, AlertCircle } from 'lucide-react';
-import html2canvas from 'html2canvas';
 import { useSession } from 'next-auth/react';
 import RoutineTableGrid from '@/components/routine/RoutineTableGrid';
 import ExportRoutinePNG from '@/components/routine/ExportRoutinePNG';
@@ -573,10 +572,8 @@ const PreRegistrationPage = () => {
                       {course.courseCode}-[{course.sectionName}]
                       </td>
                       <td className="py-3 px-2 text-sm">{course.faculties || 'TBA'}</td>
-                      <td className="py-3 px-2 text-sm text-gray-400">
                       <td className="py-3 px-2 text-sm text-gray-400 whitespace-pre-line">
                         {(course.prerequisiteCourses || 'None').replace(/OR/g, '/').replace(/AND/g, '+').replace(/\//g, '/\n')}
-                      </td>
                       </td>
                       <td className="py-3 px-2 text-sm text-center">{course.capacity}</td>
                       <td className="py-3 px-2 text-sm text-center">{course.consumedSeat}</td>
@@ -720,7 +717,7 @@ const PreRegistrationPage = () => {
                   <Save className="w-4 h-4" />
                   {savingRoutine ? 'Saving...' : 'Save Routine'}
                 </button>
-                <ExportRoutinePNG selectedCourses={selectedCourses} />
+                <ExportRoutinePNG selectedCourses={selectedCourses} routineRef={routineRef} displayToast={displayToast} />
                 <button
                   onClick={() => setShowRoutineModal(false)}
                   className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
