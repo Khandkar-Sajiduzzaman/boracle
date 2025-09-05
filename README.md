@@ -16,7 +16,7 @@ BRACU Oracle is a comprehensive academic management platform designed specifical
 
 ## Tech Stack
 
-- Next.js 14
+- Next.js 15
 - React
 - Tailwind CSS
 - NextAuth.js for authentication
