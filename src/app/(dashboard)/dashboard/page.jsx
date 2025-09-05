@@ -1,10 +1,12 @@
 import { auth } from '@/auth'
-import Welcome from '@/components/dashboard/welcome'
-import UserStats from '@/components/dashboard/userStats'
+import FacultyImport from '@/components/dashboard/facultyImport'
 import RecentActivity from '@/components/dashboard/recentActivity'
+import UserStats from '@/components/dashboard/userStats'
+import Welcome from '@/components/dashboard/welcome'
 
 export default async function DashboardPage() {
     const session = await auth()
+    const isAdmin = session?.user?.userrole === 'admin';
  
     if (!session?.user) return (<div>Not Authenticated...</div>)
     else {
@@ -14,6 +16,7 @@ export default async function DashboardPage() {
                     <Welcome />
                     <UserStats />
                     <RecentActivity />
+                    {isAdmin && <FacultyImport />}
                 </div>
             </div>
         )
