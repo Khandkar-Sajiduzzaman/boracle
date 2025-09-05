@@ -4,6 +4,7 @@ import { Search, Filter, Plus, Calendar, Clock, X, Users, BookOpen, Download, Sa
 import html2canvas from 'html2canvas';
 import { useSession } from 'next-auth/react';
 import RoutineTableGrid from '@/components/routine/RoutineTableGrid';
+import ExportRoutinePNG from '@/components/routine/ExportRoutinePNG';
 
 
 
@@ -711,13 +712,6 @@ const PreRegistrationPage = () => {
                 </p>
               </div>
               <div className="flex gap-2">
-                {/* <button
-                  onClick={exportToPNG}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Save as PNG
-                </button> */}
                 <button
                   onClick={saveRoutine}
                   disabled={savingRoutine || !session}
@@ -726,6 +720,7 @@ const PreRegistrationPage = () => {
                   <Save className="w-4 h-4" />
                   {savingRoutine ? 'Saving...' : 'Save Routine'}
                 </button>
+                <ExportRoutinePNG selectedCourses={selectedCourses} />
                 <button
                   onClick={() => setShowRoutineModal(false)}
                   className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
