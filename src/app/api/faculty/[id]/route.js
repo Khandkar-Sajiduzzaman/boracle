@@ -16,8 +16,6 @@ export async function GET(request, { params }) {
     );
     }
 
-    const userEmail = 'alice.wong@g.bracu.ac.bd';
-
     // fetch faculty information based on id passed in the [id] route. extract params as in Next 15+
     const { id } = await params;
 
