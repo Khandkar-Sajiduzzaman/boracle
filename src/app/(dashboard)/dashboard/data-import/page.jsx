@@ -1,12 +1,13 @@
 import { auth } from '@/auth';
 import FacultyImport from '@/components/dashboard/facultyImport';
+import { redirect } from 'next/navigation';
 
 export default async function DataImportPage() {
   const session = await auth()
   const isAdmin = session?.user?.userrole === 'admin';
 
   if (!session?.user) {
-    return <div>Not Authenticated...</div>
+    redirect('/api/auth/signin?callbackUrl=/dashboard/data-import');
   }
 
   if (!isAdmin) {
