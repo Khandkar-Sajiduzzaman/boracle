@@ -57,7 +57,8 @@ const RoutineTableGrid = ({
         if (schedule.day !== day.toUpperCase()) return false;
         const scheduleStart = timeToMinutes(formatTime(schedule.startTime));
         const scheduleEnd = timeToMinutes(formatTime(schedule.endTime));
-        return scheduleStart >= slotStartMin && scheduleStart < slotEndMin;
+        // Check if the course time overlaps with the slot time
+        return scheduleStart < slotEndMin && scheduleEnd > slotStartMin;
       });
       
       // Check lab schedules
@@ -65,7 +66,8 @@ const RoutineTableGrid = ({
         if (schedule.day !== day.toUpperCase()) return false;
         const scheduleStart = timeToMinutes(formatTime(schedule.startTime));
         const scheduleEnd = timeToMinutes(formatTime(schedule.endTime));
-        return scheduleStart >= slotStartMin && scheduleStart < slotEndMin;
+        // Check if the course time overlaps with the slot time
+        return scheduleStart < slotEndMin && scheduleEnd > slotStartMin;
       });
       
       return classMatch || labMatch;
@@ -108,11 +110,15 @@ const RoutineTableGrid = ({
                       {courses.length > 0 && (
                         <div className={`min-h-[80px] ${conflict ? 'space-y-1' : ''}`}>
                           {courses.map(course => {
-                            const isLab = course.labSchedules?.some(s => 
-                              s.day === day.toUpperCase() && 
-                              timeToMinutes(formatTime(s.startTime)) >= timeToMinutes(timeSlot.split('-')[0]) &&
-                              timeToMinutes(formatTime(s.startTime)) < timeToMinutes(timeSlot.split('-')[1])
-                            );
+                            const isLab = course.labSchedules?.some(s => {
+                              if (s.day !== day.toUpperCase()) return false;
+                              const scheduleStart = timeToMinutes(formatTime(s.startTime));
+                              const scheduleEnd = timeToMinutes(formatTime(s.endTime));
+                              const slotStartMin = timeToMinutes(timeSlot.split('-')[0]);
+                              const slotEndMin = timeToMinutes(timeSlot.split('-')[1]);
+                              // Check if the lab time overlaps with the slot time
+                              return scheduleStart < slotEndMin && scheduleEnd > slotStartMin;
+                            });
                             
                             return (
                               <div
