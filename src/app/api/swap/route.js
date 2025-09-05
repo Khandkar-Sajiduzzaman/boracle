@@ -53,21 +53,23 @@ export async function POST(request) {
 
     }
     //Fetching the Swap request 
+    const uEmail = session.user.email;
     const {givingSection,askingSection}= await request.json();
 
     // save to database
-    let createSwap = await sql `INSERT INTO courseSwap (getSectionID) 
-                                VALUES (${givingSection})
+    let createSwap = await sql `INSERT INTO courseSwap (getSectionID,uEmail) 
+                                VALUES (${givingSection}, ${uEmail})
                                 RETURNING swapID`;
+
                                 
     for (const element of askingSection){
-        await sql `INSERT INTO askSection (swapID, askSectionID) 
-                 VALUES (${createSwap[0].swapID}, ${element})
+        await sql `INSERT INTO askSectionID (swapID, askSectionID) 
+                 VALUES (${createSwap[0].swapid}, ${element})
                  RETURNING swapID`;
     };
    
 
-    return NextResponse.json({success: true});
+    return NextResponse.json({success: true, swapId: createSwap[0].swapid},{status:200});
   } catch (error) {
     console.error("Dashboard API error:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
