@@ -1,8 +1,8 @@
 CREATE TABLE askSectionID (
-    swapID UUID PRIMARY KEY
+    swapID UUID NOT NULL,
     askSectionID INTEGER NOT NULL,
 
-    PRIMARY KEY ()
+    PRIMARY KEY (swapID, askSectionID),
     CONSTRAINT fk_swapID
         FOREIGN KEY (swapID) 
         REFERENCES courseSwap(swapID) 

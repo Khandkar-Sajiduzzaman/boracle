@@ -20,7 +20,17 @@ export async function GET(request) {
    // fetch all course swap information 
 
     let swapRequest = await sql`SELECT * FROM CourseSwap`
-    return NextResponse.json(swapRequest[0],{status:200});
+    let swaps = []
+
+    for (const element of swapRequest){
+        let askingSections = await sql`SELECT askSectionID FROM askSectionID WHERE swapID = ${element.swapid}`;
+        element.askingSections = askingSections.map(item => item.asksectionid);
+        swaps.push(element);
+    }
+
+    console.log("Swap Requests:", swaps);
+
+    return NextResponse.json(swaps,{status:200});
   } catch (error) {
     console.error("Dashboard API error:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
