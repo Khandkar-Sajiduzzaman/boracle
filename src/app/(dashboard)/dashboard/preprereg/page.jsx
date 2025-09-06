@@ -287,7 +287,7 @@ const PreRegistrationPage = () => {
       )}
 
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur border-b border-gray-800">
+      <div className="sticky top-0 z-40  backdrop-blur border-b border-gray-800">
         <div className="container mx-auto px-4 py-4">
           {/* <h1 className="text-2xl font-bold text-white-500 mb-4 text-center">Build Routines with Confidence</h1> */}
           
