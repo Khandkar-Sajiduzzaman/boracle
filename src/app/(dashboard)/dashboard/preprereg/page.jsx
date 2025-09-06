@@ -376,7 +376,7 @@ const PreRegistrationPage = () => {
                         className={`p-2 rounded-lg transition-colors ${
                         isSelected 
                           ? 'bg-red-600 hover:bg-red-700' 
-                          : 'bg-green-600 hover:bg-green-700'
+                          : 'border-white border hover:bg-green-700 hover:border-green-400'
                         }`}
                       >
                         {isSelected ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
