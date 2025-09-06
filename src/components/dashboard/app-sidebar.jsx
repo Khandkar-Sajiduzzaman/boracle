@@ -21,6 +21,8 @@ import sidebarAdminGroups from "@/constants/sideBarAdminItems"
 
 export function AppSidebar() {
   const { data: session, status } = useSession()
+
+  console.log("Session data in Sidebar:", session)
   
   // Get user role from session - handle both 'role' and 'userrole' properties
   const userRole = session?.user?.userrole?.toLowerCase()
