@@ -84,8 +84,7 @@ const SwapCard = ({ swap, courses = [], onDelete, onMarkComplete }) => {
               </p>
               {giveCourse && (
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  {giveCourse.faculties || 'Faculty: TBA'} • 
-                  {giveCourse.capacity - giveCourse.consumedSeat} of {giveCourse.capacity} seats available
+                  {giveCourse.faculties || 'Faculty: TBA'} • {giveCourse.capacity - giveCourse.consumedSeat}/{giveCourse.capacity} Seats Available
                 </p>
               )}
             </div>
