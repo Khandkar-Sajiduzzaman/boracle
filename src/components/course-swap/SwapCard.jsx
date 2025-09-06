@@ -39,17 +39,17 @@ const SwapCard = ({ swap, courses = [], onDelete, onMarkComplete }) => {
   // Different card styles for owner vs others
   const getCardStyle = () => {
     if (isOwner) {
-      return 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-300 dark:border-green-800';
+      return 'bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800';
     }
     return 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700';
   };
 
   return (
-    <Card className={`transition-all hover:shadow-xl ${getCardStyle()} overflow-hidden`}>
+    <Card className={`relative transition-all hover:shadow-xl ${getCardStyle()} overflow-hidden`}>
       {/* Status Badge */}
       <div className="absolute top-3 right-3 z-10">
         {swap.isdone ? (
-          <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">
+          <Badge className="bg-green-500 text-white border-0">
             <CheckCircle className="w-3 h-3 mr-1" />
             Completed
           </Badge>
@@ -63,7 +63,7 @@ const SwapCard = ({ swap, courses = [], onDelete, onMarkComplete }) => {
       <CardHeader className="pb-4">
         {isOwner && (
           <div className="mb-3">
-            <Badge className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs">
+            <Badge className="bg-blue-500 text-white text-xs">
               Your Swap
             </Badge>
           </div>
@@ -146,19 +146,17 @@ const SwapCard = ({ swap, courses = [], onDelete, onMarkComplete }) => {
                 <Button 
                   size="sm"
                   onClick={() => onMarkComplete?.(swap.swapid)}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
+                  className="bg-green-500 hover:bg-green-600 text-white"
                 >
-                  <CheckCircle className="w-4 h-4 mr-1" />
-                  Complete
+                  <CheckCircle className="w-4 h-4" />
                 </Button>
               )}
               <Button 
                 size="sm"
                 onClick={() => onDelete?.(swap.swapid)}
-                className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white border-0"
+                className="bg-red-500 hover:bg-red-600 text-white"
               >
-                <Trash2 className="w-4 h-4 mr-1" />
-                Delete
+                <Trash2 className="w-4 h-4" />
               </Button>
             </div>
           )}
