@@ -25,7 +25,7 @@ const sidebarGroups = [
             },
             {
                 title: 'Swap',
-                href: '/dashboard/swap',
+                href: '/dashboard/courseswap',
                 description: 'A centralized platform to swap courses with other students. No more endless emails and waiting for replies!',
                 icon: ChevronsLeftRightEllipsis,
                 enabled: true
