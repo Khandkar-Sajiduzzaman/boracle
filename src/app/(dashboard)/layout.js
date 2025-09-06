@@ -4,6 +4,7 @@ import "@/app/globals.css";
 import { Providers } from "@/app/util/providers";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { Toaster } from 'sonner';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,7 +25,9 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Providers>{children}</Providers>
+        <Providers>{children}
+        <Toaster position="top-right" richColors />
+        </Providers>
       </body>
     </html>
   );

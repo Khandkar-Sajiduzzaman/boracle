@@ -3,24 +3,23 @@
 import React from 'react';
 import * as htmlToImage from 'html-to-image';
 // Install with: npm install html-to-image
+import { toast } from 'sonner';
 
 const ExportRoutinePNG = ({ selectedCourses, routineRef, displayToast }) => {
   const exportToPNG = async () => {
     if (!selectedCourses || selectedCourses.length === 0) {
-      if (displayToast) {
-        displayToast('Please select some courses first', 'error');
-      } else {
-        alert('Please select some courses first');
-      }
+      toast.error('Please select some courses first');
       return;
     }
 
     if (!routineRef?.current) {
-      if (displayToast) {
-        displayToast('Routine table not found', 'error');
-      } else {
-        alert('Routine table not found');
-      }
+      toast.error('Routine table not found');
+      return;
+      return;
+    }
+
+    if (!routineRef?.current) {
+      toast.error('Routine table not found');
       return;
     }
 
@@ -48,11 +47,7 @@ const ExportRoutinePNG = ({ selectedCourses, routineRef, displayToast }) => {
       
     } catch (error) {
       console.error('Error exporting to PNG:', error);
-      if (displayToast) {
-        displayToast('Failed to export routine as PNG. Please try again.', 'error');
-      } else {
-        alert('Failed to export routine as PNG. Please try again.');
-      }
+      toast.error('Failed to export routine as PNG. Please try again.');
     }
   };
   

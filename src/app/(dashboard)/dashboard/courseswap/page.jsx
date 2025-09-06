@@ -6,6 +6,7 @@ import { ArrowLeftRight, Loader2 } from "lucide-react";
 import CreateSwapModal from '@/components/course-swap/CreateSwapModal';
 import SwapCard from '@/components/course-swap/SwapCard';
 import SwapFilter from '@/components/course-swap/SwapFilter';
+import { toast } from 'sonner';
 
 const CourseSwapPage = () => {
   const [courses, setCourses] = useState([]);
@@ -70,7 +71,6 @@ const CourseSwapPage = () => {
   };
 
   const handleDeleteSwap = async (swapId) => {
-    if (!confirm('Are you sure you want to delete this swap request?')) return;
     
     try {
       const response = await fetch(`/api/swap/${swapId}`, {
@@ -86,10 +86,8 @@ const CourseSwapPage = () => {
   };
 
   const handleMarkComplete = async (swapId) => {
-    if (!confirm('Mark this swap as completed?')) return;
-    
     try {
-      const response = await fetch(`/api/swap/${swapId}/complete`, {
+      const response = await fetch(`/api/swap/${swapId}`, {
         method: 'PATCH',
       });
       

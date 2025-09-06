@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import CourseSelector from './CourseSelector';
 import MultiCourseSelector from './MultiCourseSelector';
+import { toast } from 'sonner';
 
 const CreateSwapModal = ({ courses, onSwapCreated }) => {
   const [modalOpen, setModalOpen] = useState(false);
@@ -22,13 +23,13 @@ const CreateSwapModal = ({ courses, onSwapCreated }) => {
 
   const handleSubmit = async () => {
     if (!givingSection || askingSections.length === 0) {
-      alert('Please select both giving and asking sections');
+      toast.error('Please select a section to give and at least one section to get.');
       return;
     }
 
     setSubmitting(true);
     try {
-      const response = await fetch('/api/courseswap', {
+      const response = await fetch('/api/swap', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -41,7 +42,7 @@ const CreateSwapModal = ({ courses, onSwapCreated }) => {
 
       if (response.ok) {
         const result = await response.json();
-        alert('Swap request created successfully!');
+        toast.success('Swap request created successfully!');
         setModalOpen(false);
         setGivingSection("");
         setAskingSections([]);
@@ -51,7 +52,7 @@ const CreateSwapModal = ({ courses, onSwapCreated }) => {
       }
     } catch (error) {
       console.error('Error creating swap:', error);
-      alert('Failed to create swap request. Please try again.');
+      toast.error('Failed to create swap request. Please try again.');
     } finally {
       setSubmitting(false);
     }
