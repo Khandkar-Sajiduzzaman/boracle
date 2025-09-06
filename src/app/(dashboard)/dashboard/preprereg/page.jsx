@@ -4,6 +4,7 @@ import { Search, Filter, Plus, Calendar, Clock, X, Users, BookOpen, Download, Sa
 import { useSession } from 'next-auth/react';
 import RoutineTableGrid from '@/components/routine/RoutineTableGrid';
 import ExportRoutinePNG from '@/components/routine/ExportRoutinePNG';
+import { toast } from 'sonner';
 
 
 
@@ -20,7 +21,7 @@ const PreRegistrationPage = () => {
   const [selectedCourses, setSelectedCourses] = useState([]);
   const [savingRoutine, setSavingRoutine] = useState(false);
   const [creditLimitWarning, setCreditLimitWarning] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [customToast, setCustomToast] = useState({ show: false, message: '', type: 'success' });
   const [filters, setFilters] = useState({
     hideFilled: false,
     avoidFaculties: []
@@ -30,14 +31,6 @@ const PreRegistrationPage = () => {
   const observerRef = useRef();
   const lastCourseRef = useRef();
   const routineRef = useRef(null);
-
-  // Show toast notification
-  const displayToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => {
-      setToast({ show: false, message: '', type: 'success' });
-    }, 3000);
-  };
 
   // Calculate total credits
   const totalCredits = useMemo(() => {
@@ -50,6 +43,19 @@ const PreRegistrationPage = () => {
       try {
         const response = await fetch('https://usis-cdn.eniamza.com/connect.json');
         const data = await response.json();
+        // Sort courses by course code and section name
+        data.sort((a, b) => {
+          const codeA = a.courseCode || '';
+          const codeB = b.courseCode || '';
+          const sectionA = a.sectionName || '';
+          const sectionB = b.sectionName || '';
+
+          if (codeA < codeB) return -1;
+          if (codeA > codeB) return 1;
+          if (sectionA < sectionB) return -1;
+          if (sectionA > sectionB) return 1;
+          return 0;
+        });
         setCourses(data);
         setFilteredCourses(data);
         setLoading(false);
@@ -162,42 +168,40 @@ const PreRegistrationPage = () => {
 
   // Add course to routine
   const addToRoutine = (course) => {
-    setSelectedCourses(prev => {
-      const existsBySection = prev.find(c => c.sectionId === course.sectionId);
-      const existsByCourse = prev.find(c => c.courseCode === course.courseCode);
+    const existsBySection = selectedCourses.find(c => c.sectionId === course.sectionId);
+    const existsByCourse = selectedCourses.find(c => c.courseCode === course.courseCode);
+    
+    if (existsBySection) {
+      // Removing course
+      setCreditLimitWarning(false);
+      setSelectedCourses(prev => prev.filter(c => c.sectionId !== course.sectionId));
+    } else if (existsByCourse) {
+      // Same course already exists (different section) - prevent adding and show warning
+      toast.error(`${course.courseCode} is already in your routine (${existsByCourse.sectionName}). Remove it first to add a different section.`);
+      return; // Don't proceed further
+    } else {
+      // Adding new course - check credit limit
+      const newTotalCredits = selectedCourses.reduce((sum, c) => sum + (c.courseCredit || 0), 0) + (course.courseCredit || 0);
       
-      if (existsBySection) {
-        // Removing course
-        setCreditLimitWarning(false);
-        return prev.filter(c => c.sectionId !== course.sectionId);
-      } else if (existsByCourse) {
-        // Same course already exists (different section) - prevent adding and show warning
-        displayToast(`${course.courseCode} is already in your routine (${existsByCourse.sectionName}). Remove it first to add a different section.`, 'error');
-        return prev; // Don't add the duplicate course
-      } else {
-        // Adding new course - check credit limit
-        const newTotalCredits = prev.reduce((sum, c) => sum + (c.courseCredit || 0), 0) + (course.courseCredit || 0);
-        
-        if (newTotalCredits > 15) {
-          setCreditLimitWarning(true);
-          setTimeout(() => setCreditLimitWarning(false), 3000);
-          return prev; // Don't add if it exceeds 15 credits
-        }
-        
-        return [...prev, course];
+      if (newTotalCredits > 15) {
+        setCreditLimitWarning(true);
+        setTimeout(() => setCreditLimitWarning(false), 3000);
+        return; // Don't proceed further
       }
-    });
+      
+      setSelectedCourses(prev => [...prev, course]);
+    }
   };
 
   // Save routine to database
   const saveRoutine = async () => {
     if (!session?.user?.email) {
-      displayToast('Please login to save your routine', 'error');
+      toast.error('Please login to save your routine');
       return;
     }
 
     if (selectedCourses.length === 0) {
-      displayToast('Please select some courses first', 'error');
+      toast.error('Please select some courses first');
       return;
     }
 
@@ -220,13 +224,13 @@ const PreRegistrationPage = () => {
       });
 
       if (response.ok) {
-        displayToast('Routine saved successfully!', 'success');
+        toast.success('Routine saved successfully!');
       } else {
         throw new Error('Failed to save routine');
       }
     } catch (error) {
       console.error('Error saving routine:', error);
-      displayToast('Failed to save routine. Please try again.', 'error');
+      toast.error('Failed to save routine. Please try again.');
     } finally {
       setSavingRoutine(false);
     }
@@ -254,23 +258,23 @@ const PreRegistrationPage = () => {
   return (
     <div className="min-h-screen text-gray-100">
       {/* Toast Notification */}
-      {toast.show && (
+      {customToast.show && (
         <div className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 ${
-          toast.type === 'success' ? 'bg-green-600 text-white' : 
-          toast.type === 'info' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
+          customToast.type === 'success' ? 'bg-green-600 text-white' : 
+          customToast.type === 'info' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
         }`}>
-          {toast.type === 'success' ? (
+          {customToast.type === 'success' ? (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-          ) : toast.type === 'info' ? (
+          ) : customToast.type === 'info' ? (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
           ) : (
             <AlertCircle className="w-5 h-5" />
           )}
-          {toast.message}
+          {customToast.message}
         </div>
       )}
 
@@ -492,7 +496,7 @@ const PreRegistrationPage = () => {
                   <Save className="w-4 h-4" />
                   {savingRoutine ? 'Saving...' : 'Save Routine'}
                 </button>
-                <ExportRoutinePNG selectedCourses={selectedCourses} routineRef={routineRef} displayToast={displayToast} />
+                <ExportRoutinePNG selectedCourses={selectedCourses} routineRef={routineRef} />
                 <button
                   onClick={() => setShowRoutineModal(false)}
                   className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
@@ -506,7 +510,6 @@ const PreRegistrationPage = () => {
               <RoutineTableGrid 
                 selectedCourses={selectedCourses} 
                 onRemoveCourse={addToRoutine} 
-                displayToast={displayToast}
                 showRemoveButtons={true}
               />
             </div>
