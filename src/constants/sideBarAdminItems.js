@@ -1,4 +1,4 @@
-import { Home,Sigma,FileCheck2,Users, DatabaseZap } from "lucide-react"
+import { Database, FileCheck2, Users } from "lucide-react";
 
 const sidebarAdminGroups = [
         {
@@ -28,8 +28,8 @@ const sidebarAdminGroups = [
             {
                 title: 'Data Import',
                 href: '/dashboard/data-import',
-                description: 'Import data from various sources',
-                icon: DatabaseZap,
+                description: 'Import faculty and other data using CSV files',
+                icon: Database,
                 enabled: true,
                 forAdminOnly: true
             }

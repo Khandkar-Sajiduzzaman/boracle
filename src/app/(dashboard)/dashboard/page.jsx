@@ -1,7 +1,8 @@
 import { auth } from '@/auth'
-import Welcome from '@/components/dashboard/welcome'
-import UserStats from '@/components/dashboard/userStats'
 import RecentActivity from '@/components/dashboard/recentActivity'
+import UserStats from '@/components/dashboard/userStats'
+import Welcome from '@/components/dashboard/welcome'
+import { redirect } from 'next/navigation'
 
 export default async function DashboardPage() {
         return (
