@@ -102,16 +102,13 @@ const CourseSwapPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
+    <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-              Course Swap
+            <h1 className="text-4xl font-bold text-white">
+              Swap Arena
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Exchange course sections with other students
-            </p>
           </div>
           
           <div className="flex gap-3">

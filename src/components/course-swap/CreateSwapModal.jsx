@@ -60,7 +60,7 @@ const CreateSwapModal = ({ courses, onSwapCreated }) => {
   return (
     <Dialog open={modalOpen} onOpenChange={setModalOpen}>
       <DialogTrigger asChild>
-        <div className="px-4 py-2 bg-white hover:bg-green-700 text-gray-800 rounded-lg cursor-pointer transition-all flex items-center gap-2">
+        <div className="px-4 py-2 bg-white hover:bg-gray-300 text-gray-800 rounded-lg cursor-pointer transition-all flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Create Swap
         </div>
