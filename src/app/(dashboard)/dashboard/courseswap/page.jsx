@@ -2,18 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeftRight, Loader2 } from "lucide-react";
+import { ArrowLeftRight, Loader2, User } from "lucide-react";
+import { useSession } from 'next-auth/react';
 import CreateSwapModal from '@/components/course-swap/CreateSwapModal';
 import SwapCard from '@/components/course-swap/SwapCard';
 import SwapFilter from '@/components/course-swap/SwapFilter';
 import { toast } from 'sonner';
 
 const CourseSwapPage = () => {
+  const { data: session } = useSession();
   const [courses, setCourses] = useState([]);
   const [swaps, setSwaps] = useState([]);
   const [filteredSwaps, setFilteredSwaps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedFilters, setSelectedFilters] = useState([]);
+  const [showMySwapsOnly, setShowMySwapsOnly] = useState(false);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -33,6 +36,10 @@ const CourseSwapPage = () => {
     fetchSwaps();
   }, []);
 
+  useEffect(() => {
+    applyFilters();
+  }, [swaps, selectedFilters, showMySwapsOnly, session]);
+
   const fetchSwaps = async () => {
     try {
       setLoading(true);
@@ -40,12 +47,10 @@ const CourseSwapPage = () => {
       if (response.ok) {
         const data = await response.json();
         setSwaps(data || []);
-        setFilteredSwaps(data || []);
       }
     } catch (error) {
       console.error('Error fetching swaps:', error);
       setSwaps([]);
-      setFilteredSwaps([]);
     } finally {
       setLoading(false);
     }
@@ -53,35 +58,54 @@ const CourseSwapPage = () => {
 
   const handleFilterChange = (selectedCourseIds) => {
     setSelectedFilters(selectedCourseIds);
-    
-    if (selectedCourseIds.length === 0) {
-      setFilteredSwaps(swaps);
-    } else {
-      const filtered = swaps.filter(swap => {
+  };
+
+  const applyFilters = () => {
+    let filtered = [...swaps];
+
+    // Apply "My Swaps Only" filter first
+    if (showMySwapsOnly && session?.user?.email) {
+      filtered = filtered.filter(swap => {
+        const isMySwap = swap.uemail?.toLowerCase() === session.user.email?.toLowerCase();
+        return isMySwap;
+      });
+    }
+
+    // Apply course filters
+    if (selectedFilters.length > 0) {
+      filtered = filtered.filter(swap => {
         const relatedSections = [
           swap.getsectionid,
           ...(swap.askingSections || [])
         ];
         return relatedSections.some(sectionId => 
-          selectedCourseIds.includes(sectionId)
+          selectedFilters.includes(sectionId)
         );
       });
-      setFilteredSwaps(filtered);
     }
+
+    setFilteredSwaps(filtered);
+  };
+
+  const handleMySwapsToggle = () => {
+    setShowMySwapsOnly(!showMySwapsOnly);
   };
 
   const handleDeleteSwap = async (swapId) => {
-    
     try {
       const response = await fetch(`/api/swap/${swapId}`, {
         method: 'DELETE',
       });
       
       if (response.ok) {
+        toast.success('Swap deleted successfully');
         fetchSwaps();
+      } else {
+        toast.error('Failed to delete swap');
       }
     } catch (error) {
       console.error('Error deleting swap:', error);
+      toast.error('Error deleting swap');
     }
   };
 
@@ -92,10 +116,14 @@ const CourseSwapPage = () => {
       });
       
       if (response.ok) {
+        toast.success('Swap marked as complete');
         fetchSwaps();
+      } else {
+        toast.error('Failed to mark swap as complete');
       }
     } catch (error) {
       console.error('Error marking swap as complete:', error);
+      toast.error('Error marking swap as complete');
     }
   };
 
@@ -109,7 +137,28 @@ const CourseSwapPage = () => {
             </h1>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            {session?.user?.email && (
+              <label className="flex items-center gap-3 cursor-pointer">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">My Swaps Only</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showMySwapsOnly}
+                  onClick={handleMySwapsToggle}
+                  className={`relative inline-flex h-[24px] w-[44px] items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-opacity-75 ${
+                    showMySwapsOnly ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                >
+                  <span className="sr-only">Toggle my swaps only</span>
+                  <span
+                    className={`${
+                      showMySwapsOnly ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                    } pointer-events-none inline-block h-[20px] w-[20px] transform rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ease-in-out`}
+                  />
+                </button>
+              </label>
+            )}
             {swaps.length > 0 && (
               <SwapFilter 
                 courses={courses}
@@ -126,7 +175,7 @@ const CourseSwapPage = () => {
 
         {loading ? (
           <div className="text-center py-16">
-            <Loader2 className="h-12 w-12 animate-spin mx-auto text-purple-600" />
+            <Loader2 className="h-12 w-12 animate-spin mx-auto text-white" />
             <p className="mt-4 text-gray-600 dark:text-gray-400">Loading swaps...</p>
           </div>
         ) : filteredSwaps.length === 0 ? (
@@ -136,13 +185,18 @@ const CourseSwapPage = () => {
                 <ArrowLeftRight className="h-12 w-12 text-purple-600 dark:text-purple-400" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                {selectedFilters.length > 0 ? 'No matching swaps found' : 'No swap requests available'}
+                {showMySwapsOnly 
+                  ? 'You have no active swap requests' 
+                  : selectedFilters.length > 0 
+                    ? 'No matching swaps found' 
+                    : 'No swap requests available'}
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                {selectedFilters.length > 0 
-                  ? 'Try adjusting your filters or create a new swap request'
-                  : 'Be the first to create a swap request!'
-                }
+                {showMySwapsOnly
+                  ? 'Create a new swap request to get started'
+                  : selectedFilters.length > 0
+                    ? 'Try adjusting your filters or create a new swap request'
+                    : 'Be the first to create a swap request!'}
               </p>
             </CardContent>
           </Card>
@@ -151,7 +205,7 @@ const CourseSwapPage = () => {
             {filteredSwaps.map((swap) => (
               <SwapCard 
                 key={swap.swapid} 
-                swap={swap} 
+                swap={{...swap, email: swap.uemail}} 
                 courses={courses}
                 onDelete={handleDeleteSwap}
                 onMarkComplete={handleMarkComplete}
