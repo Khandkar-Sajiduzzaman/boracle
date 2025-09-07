@@ -179,7 +179,7 @@ const SavedRoutinesPage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-8">
+    <div className="min-h-screen  text-white p-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Saved Routines</h1>
       {toast.show && (
         <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 text-white ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
@@ -232,14 +232,14 @@ const SavedRoutinesPage = () => {
                 <button
                   onClick={() => viewRoutine(routine)}
                   disabled={loadingRoutine}
-                  className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors"
+                  className="flex-1 px-3 py-2 bg-white text-gray-900 hover:bg-gray-300 disabled:bg-gray-600 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors"
                 >
                   <Eye className="w-4 h-4" />
                   {loadingRoutine && viewingRoutine?.id === routine.id ? 'Loading...' : 'View'}
                 </button>
                 <button
                   onClick={() => deleteRoutine(routine.id)}
-                  className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors"
+                  className="px-3 py-2 hover:bg-red-700 rounded-lg flex items-center justify-center gap-2 text-sm transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

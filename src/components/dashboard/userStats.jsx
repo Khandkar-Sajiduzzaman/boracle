@@ -117,7 +117,7 @@ export default function UserStats() {
           return (
             <Card 
               key={index} 
-              className="dark:bg-blue-900 hover:shadow-lg transition-shadow duration-200 border-gray-200 dark:border-gray-700"
+              className="bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800"
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-600 dark:text-white">
@@ -126,7 +126,7 @@ export default function UserStats() {
                 <IconComponent className={`h-4 w-4 ${stat.color}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                <div className="text-2xl font-bold text-gray-900 dark:text-blue-300 mb-1">
                   {stat.value.toLocaleString()}
                 </div>
                 <p className="text-xs text-gray-200 dark:text-gray-200">

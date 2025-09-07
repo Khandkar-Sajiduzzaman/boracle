@@ -19,7 +19,7 @@ export async function GET(request) {
 
    // fetch all course swap information 
 
-    let swapRequest = await sql`SELECT * FROM CourseSwap`
+    let swapRequest = await sql`SELECT * FROM CourseSwap WHERE isDone = false`;
     let swaps = []
 
     for (const element of swapRequest){
