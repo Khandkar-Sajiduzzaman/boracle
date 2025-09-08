@@ -5,8 +5,8 @@ const sidebarAdminGroups = [
         label: "Moderation",
         items: [
             {
-                title: 'Posts',
-                href: '/dashboard/manage-posts',
+                title: 'Swaps',
+                href: '/dashboard/manage-swaps',
                 description: 'Manage and moderate pending and approved posts from users',
                 icon: FileCheck2,
                 enabled: true,
