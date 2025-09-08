@@ -43,7 +43,7 @@ export async function POST(request) {
   try {
     // Get authenticated user session
     const session = await auth();
-    console.log("Routine List API accessed by:", session?.user?.email);
+    console.log("Swap List API accessed by:", session?.user?.email);
     
     if (!session || !session.user?.email) {
       return NextResponse.json(
