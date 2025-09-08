@@ -24,7 +24,7 @@ export default function SignInOrDashboard() {
     return (
         <div className="flex items-center gap-2">
         {isAuthenticated 
-        ? <Button className={"dark:bg-cyan-400"} variant="default" asChild>
+        ? <Button className={"dark:bg-white"} variant="default" asChild>
                 <Link href="/dashboard">Go to Dashboard</Link>
           </Button> 
         : <SignIn />}

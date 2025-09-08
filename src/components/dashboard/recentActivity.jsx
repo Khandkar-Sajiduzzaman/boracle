@@ -150,7 +150,7 @@ export default function RecentActivity() {
 
       <div className="space-y-6">
         {/* Course Materials Section */}
-        <Card className="dark:bg-slate-800 border-gray-200 dark:border-gray-700">
+        <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
               <FileText className="h-5 w-5" />
@@ -163,7 +163,7 @@ export default function RecentActivity() {
                 {activities.materials.map((material) => (
                   <div 
                     key={material.materialid} 
-                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-blue-950 hover:border-blue-800 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
@@ -212,7 +212,7 @@ export default function RecentActivity() {
         </Card>
 
         {/* Reviews Section */}
-        <Card className="dark:bg-slate-800 border-gray-200 dark:border-gray-700">
+        <Card className=" bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
               <MessageSquare className="h-5 w-5" />
@@ -221,11 +221,11 @@ export default function RecentActivity() {
           </CardHeader>
           <CardContent>
             {hasReviews ? (
-              <div className="space-y-4">
+              <div className="space-y-4 ">
                 {activities.reviews.map((review) => (
                   <div 
                     key={review.reviewid} 
-                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-blue-950 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">

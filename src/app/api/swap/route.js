@@ -19,7 +19,7 @@ export async function GET(request) {
 
    // fetch all course swap information 
 
-    let swapRequest = await sql`SELECT * FROM CourseSwap`
+    let swapRequest = await sql`SELECT * FROM CourseSwap WHERE isDone = false`;
     let swaps = []
 
     for (const element of swapRequest){
@@ -43,7 +43,7 @@ export async function POST(request) {
   try {
     // Get authenticated user session
     const session = await auth();
-    console.log("Routine List API accessed by:", session?.user?.email);
+    console.log("Swap List API accessed by:", session?.user?.email);
     
     if (!session || !session.user?.email) {
       return NextResponse.json(

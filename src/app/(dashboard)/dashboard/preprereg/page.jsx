@@ -4,6 +4,7 @@ import { Search, Filter, Plus, Calendar, Clock, X, Users, BookOpen, Download, Sa
 import { useSession } from 'next-auth/react';
 import RoutineTableGrid from '@/components/routine/RoutineTableGrid';
 import ExportRoutinePNG from '@/components/routine/ExportRoutinePNG';
+import { toast } from 'sonner';
 
 
 
@@ -20,7 +21,7 @@ const PreRegistrationPage = () => {
   const [selectedCourses, setSelectedCourses] = useState([]);
   const [savingRoutine, setSavingRoutine] = useState(false);
   const [creditLimitWarning, setCreditLimitWarning] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [customToast, setCustomToast] = useState({ show: false, message: '', type: 'success' });
   const [filters, setFilters] = useState({
     hideFilled: false,
     avoidFaculties: []
@@ -30,14 +31,6 @@ const PreRegistrationPage = () => {
   const observerRef = useRef();
   const lastCourseRef = useRef();
   const routineRef = useRef(null);
-
-  // Show toast notification
-  const displayToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => {
-      setToast({ show: false, message: '', type: 'success' });
-    }, 3000);
-  };
 
   // Calculate total credits
   const totalCredits = useMemo(() => {
@@ -50,6 +43,19 @@ const PreRegistrationPage = () => {
       try {
         const response = await fetch('https://usis-cdn.eniamza.com/connect.json');
         const data = await response.json();
+        // Sort courses by course code and section name
+        data.sort((a, b) => {
+          const codeA = a.courseCode || '';
+          const codeB = b.courseCode || '';
+          const sectionA = a.sectionName || '';
+          const sectionB = b.sectionName || '';
+
+          if (codeA < codeB) return -1;
+          if (codeA > codeB) return 1;
+          if (sectionA < sectionB) return -1;
+          if (sectionA > sectionB) return 1;
+          return 0;
+        });
         setCourses(data);
         setFilteredCourses(data);
         setLoading(false);
@@ -162,42 +168,40 @@ const PreRegistrationPage = () => {
 
   // Add course to routine
   const addToRoutine = (course) => {
-    setSelectedCourses(prev => {
-      const existsBySection = prev.find(c => c.sectionId === course.sectionId);
-      const existsByCourse = prev.find(c => c.courseCode === course.courseCode);
+    const existsBySection = selectedCourses.find(c => c.sectionId === course.sectionId);
+    const existsByCourse = selectedCourses.find(c => c.courseCode === course.courseCode);
+    
+    if (existsBySection) {
+      // Removing course
+      setCreditLimitWarning(false);
+      setSelectedCourses(prev => prev.filter(c => c.sectionId !== course.sectionId));
+    } else if (existsByCourse) {
+      // Same course already exists (different section) - prevent adding and show warning
+      toast.error(`${course.courseCode} is already in your routine (${existsByCourse.sectionName}). Remove it first to add a different section.`);
+      return; // Don't proceed further
+    } else {
+      // Adding new course - check credit limit
+      const newTotalCredits = selectedCourses.reduce((sum, c) => sum + (c.courseCredit || 0), 0) + (course.courseCredit || 0);
       
-      if (existsBySection) {
-        // Removing course
-        setCreditLimitWarning(false);
-        return prev.filter(c => c.sectionId !== course.sectionId);
-      } else if (existsByCourse) {
-        // Same course already exists (different section) - prevent adding and show warning
-        displayToast(`${course.courseCode} is already in your routine (${existsByCourse.sectionName}). Remove it first to add a different section.`, 'error');
-        return prev; // Don't add the duplicate course
-      } else {
-        // Adding new course - check credit limit
-        const newTotalCredits = prev.reduce((sum, c) => sum + (c.courseCredit || 0), 0) + (course.courseCredit || 0);
-        
-        if (newTotalCredits > 15) {
-          setCreditLimitWarning(true);
-          setTimeout(() => setCreditLimitWarning(false), 3000);
-          return prev; // Don't add if it exceeds 15 credits
-        }
-        
-        return [...prev, course];
+      if (newTotalCredits > 15) {
+        setCreditLimitWarning(true);
+        setTimeout(() => setCreditLimitWarning(false), 3000);
+        return; // Don't proceed further
       }
-    });
+      
+      setSelectedCourses(prev => [...prev, course]);
+    }
   };
 
   // Save routine to database
   const saveRoutine = async () => {
     if (!session?.user?.email) {
-      displayToast('Please login to save your routine', 'error');
+      toast.error('Please login to save your routine');
       return;
     }
 
     if (selectedCourses.length === 0) {
-      displayToast('Please select some courses first', 'error');
+      toast.error('Please select some courses first');
       return;
     }
 
@@ -220,250 +224,15 @@ const PreRegistrationPage = () => {
       });
 
       if (response.ok) {
-        displayToast('Routine saved successfully!', 'success');
+        toast.success('Routine saved successfully!');
       } else {
         throw new Error('Failed to save routine');
       }
     } catch (error) {
       console.error('Error saving routine:', error);
-      displayToast('Failed to save routine. Please try again.', 'error');
+      toast.error('Failed to save routine. Please try again.');
     } finally {
       setSavingRoutine(false);
-    }
-  };
-
-  // Export to PNG with clean DOM approach
-  const exportToPNG = async () => {
-    try {
-      if (selectedCourses.length === 0) {
-        displayToast('Please select some courses first', 'error');
-        return;
-      }
-
-      // Helper functions (reuse from RoutineTable)
-      const timeSlots = [
-        '08:00 AM-09:20 AM',
-        '09:30 AM-10:50 AM',
-        '11:00 AM-12:20 PM',
-        '12:30 PM-01:50 PM',
-        '02:00 PM-03:20 PM',
-        '03:30 PM-04:50 PM',
-        '05:00 PM-06:20 PM'
-      ];
-      
-      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      
-      const timeToMinutes = (timeStr) => {
-        const [time, period] = timeStr.split(' ');
-        const [hours, minutes] = time.split(':').map(Number);
-        let totalMinutes = hours * 60 + minutes;
-        if (period === 'PM' && hours !== 12) totalMinutes += 12 * 60;
-        if (period === 'AM' && hours === 12) totalMinutes -= 12 * 60;
-        return totalMinutes;
-      };
-      
-      const formatTime = (time) => {
-        if (!time) return '';
-        const [hours, minutes] = time.split(':');
-        const hour = parseInt(hours);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour % 12 || 12;
-        return `${displayHour}:${minutes} ${ampm}`;
-      };
-      
-      const getCoursesForSlot = (day, timeSlot) => {
-        const [slotStart, slotEnd] = timeSlot.split('-');
-        const slotStartMin = timeToMinutes(slotStart);
-        const slotEndMin = timeToMinutes(slotEnd);
-        
-        return selectedCourses.filter(course => {
-          const classMatch = course.sectionSchedule?.classSchedules?.some(schedule => {
-            if (schedule.day !== day.toUpperCase()) return false;
-            const scheduleStart = timeToMinutes(formatTime(schedule.startTime));
-            const scheduleEnd = timeToMinutes(formatTime(schedule.endTime));
-            return scheduleStart >= slotStartMin && scheduleStart < slotEndMin;
-          });
-          
-          const labMatch = course.labSchedules?.some(schedule => {
-            if (schedule.day !== day.toUpperCase()) return false;
-            const scheduleStart = timeToMinutes(formatTime(schedule.startTime));
-            const scheduleEnd = timeToMinutes(formatTime(schedule.endTime));
-            return scheduleStart >= slotStartMin && scheduleStart < slotEndMin;
-          });
-          
-          return classMatch || labMatch;
-        });
-      };
-
-      // Create a clean version of the routine table without Tailwind classes
-      const exportContainer = document.createElement('div');
-      exportContainer.style.cssText = `
-        background-color: rgb(17, 24, 39);
-        color: rgb(229, 231, 235);
-        padding: 16px;
-        font-family: system-ui, -apple-system, sans-serif;
-        width: 1200px;
-        position: absolute;
-        top: -9999px;
-        left: -9999px;
-      `;
-
-      const table = document.createElement('table');
-      table.style.cssText = `
-        width: 100%;
-        border-collapse: collapse;
-        color: rgb(229, 231, 235);
-      `;
-
-      // Create header
-      const thead = document.createElement('thead');
-      const headerRow = document.createElement('tr');
-      headerRow.style.borderBottom = '1px solid rgb(55, 65, 81)';
-
-      const timeHeader = document.createElement('th');
-      timeHeader.textContent = 'Time/Day';
-      timeHeader.style.cssText = `
-        text-align: left;
-        padding: 16px;
-        font-size: 16px;
-        font-weight: 500;
-        color: rgb(156, 163, 175);
-        width: 176px;
-      `;
-      headerRow.appendChild(timeHeader);
-
-      days.forEach(day => {
-        const th = document.createElement('th');
-        th.textContent = day;
-        th.style.cssText = `
-          text-align: center;
-          padding: 16px 12px;
-          font-size: 16px;
-          font-weight: 500;
-          color: rgb(156, 163, 175);
-        `;
-        headerRow.appendChild(th);
-      });
-
-      thead.appendChild(headerRow);
-      table.appendChild(thead);
-
-      // Create body
-      const tbody = document.createElement('tbody');
-
-      timeSlots.forEach(timeSlot => {
-        const row = document.createElement('tr');
-        row.style.borderBottom = '1px solid rgb(31, 41, 55)';
-
-        const timeCell = document.createElement('td');
-        timeCell.textContent = timeSlot;
-        timeCell.style.cssText = `
-          padding: 16px;
-          font-size: 16px;
-          font-weight: 500;
-          color: rgb(156, 163, 175);
-          white-space: nowrap;
-        `;
-        row.appendChild(timeCell);
-
-        days.forEach(day => {
-          const cell = document.createElement('td');
-          cell.style.cssText = `
-            padding: 8px;
-            border-left: 1px solid rgb(31, 41, 55);
-            min-height: 80px;
-            vertical-align: top;
-          `;
-
-          const courses = getCoursesForSlot(day, timeSlot);
-          const conflict = courses.length > 1;
-
-          courses.forEach(course => {
-            const isLab = course.labSchedules?.some(s => 
-              s.day === day.toUpperCase() && 
-              timeToMinutes(formatTime(s.startTime)) >= timeToMinutes(timeSlot.split('-')[0]) &&
-              timeToMinutes(formatTime(s.startTime)) < timeToMinutes(timeSlot.split('-')[1])
-            );
-
-            const courseDiv = document.createElement('div');
-            courseDiv.style.cssText = `
-              padding: 12px;
-              border-radius: 4px;
-              font-size: 14px;
-              margin-bottom: 4px;
-              border: 1px solid;
-              ${conflict 
-                ? 'background-color: rgba(127, 29, 29, 0.5); border-color: rgb(220, 38, 38);' 
-                : isLab 
-                  ? 'background-color: rgba(88, 28, 135, 0.5); border-color: rgb(147, 51, 234);'
-                  : 'background-color: rgba(30, 58, 138, 0.5); border-color: rgb(37, 99, 235);'
-              }
-            `;
-
-            const courseCode = document.createElement('div');
-            courseCode.textContent = `${course.courseCode}${isLab ? 'L' : ''}-${course.sectionName}`;
-            courseCode.style.cssText = 'font-weight: 600; font-size: 16px;';
-            courseDiv.appendChild(courseCode);
-
-            const room = document.createElement('div');
-            room.textContent = course.roomName || course.roomNumber || 'TBA';
-            room.style.cssText = 'color: rgb(156, 163, 175); margin-top: 2px;';
-            courseDiv.appendChild(room);
-
-            if (course.faculties) {
-              const faculty = document.createElement('div');
-              faculty.textContent = course.faculties;
-              faculty.style.cssText = 'color: rgb(107, 114, 128); margin-top: 2px;';
-              courseDiv.appendChild(faculty);
-            }
-
-            cell.appendChild(courseDiv);
-          });
-
-          row.appendChild(cell);
-        });
-
-        tbody.appendChild(row);
-      });
-
-      table.appendChild(tbody);
-      exportContainer.appendChild(table);
-
-      // Add footer
-      const footer = document.createElement('div');
-      footer.style.cssText = `
-        margin-top: 16px;
-        text-align: center;
-        border-top: 1px solid rgb(55, 65, 81);
-        padding-top: 16px;
-        font-size: 14px;
-        color: rgb(107, 114, 128);
-      `;
-      footer.textContent = 'Made with ❤️ from https://oracle.eniamza.com';
-      exportContainer.appendChild(footer);
-
-      document.body.appendChild(exportContainer);
-
-      try {
-        const canvas = await html2canvas(exportContainer, {
-          backgroundColor: '#111827',
-          scale: 2,
-          useCORS: true,
-          allowTaint: false,
-          logging: false
-        });
-        
-        const link = document.createElement('a');
-        link.download = `my-routine-${new Date().toISOString().split('T')[0]}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      } finally {
-        document.body.removeChild(exportContainer);
-      }
-      
-    } catch (error) {
-      console.error('Error exporting to PNG:', error);
-      displayToast('Failed to export as PNG. Please try again.', 'error');
     }
   };
 
@@ -487,25 +256,25 @@ const PreRegistrationPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen text-gray-100">
       {/* Toast Notification */}
-      {toast.show && (
+      {customToast.show && (
         <div className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 ${
-          toast.type === 'success' ? 'bg-green-600 text-white' : 
-          toast.type === 'info' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
+          customToast.type === 'success' ? 'bg-green-600 text-white' : 
+          customToast.type === 'info' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
         }`}>
-          {toast.type === 'success' ? (
+          {customToast.type === 'success' ? (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-          ) : toast.type === 'info' ? (
+          ) : customToast.type === 'info' ? (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
           ) : (
             <AlertCircle className="w-5 h-5" />
           )}
-          {toast.message}
+          {customToast.message}
         </div>
       )}
 
@@ -518,7 +287,7 @@ const PreRegistrationPage = () => {
       )}
 
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-gray-900/95 backdrop-blur border-b border-gray-800">
+      <div className="sticky top-0 z-40  backdrop-blur border-b border-gray-800">
         <div className="container mx-auto px-4 py-4">
           {/* <h1 className="text-2xl font-bold text-white-500 mb-4 text-center">Build Routines with Confidence</h1> */}
           
@@ -536,7 +305,7 @@ const PreRegistrationPage = () => {
             </div>
             <button
               onClick={() => setShowFilterModal(true)}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2 transition-colors"
+              className="px-6 py-3 bg-white text-gray-900 hover:bg-blue-700 hover:text-white rounded-lg flex items-center gap-2 transition-colors"
             >
               <Filter className="w-5 h-5" />
               Filters
@@ -607,7 +376,7 @@ const PreRegistrationPage = () => {
                         className={`p-2 rounded-lg transition-colors ${
                         isSelected 
                           ? 'bg-red-600 hover:bg-red-700' 
-                          : 'bg-green-600 hover:bg-green-700'
+                          : 'border-white border hover:bg-green-700 hover:border-green-400'
                         }`}
                       >
                         {isSelected ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
@@ -727,7 +496,7 @@ const PreRegistrationPage = () => {
                   <Save className="w-4 h-4" />
                   {savingRoutine ? 'Saving...' : 'Save Routine'}
                 </button>
-                <ExportRoutinePNG selectedCourses={selectedCourses} routineRef={routineRef} displayToast={displayToast} />
+                <ExportRoutinePNG selectedCourses={selectedCourses} routineRef={routineRef} />
                 <button
                   onClick={() => setShowRoutineModal(false)}
                   className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
@@ -741,7 +510,6 @@ const PreRegistrationPage = () => {
               <RoutineTableGrid 
                 selectedCourses={selectedCourses} 
                 onRemoveCourse={addToRoutine} 
-                displayToast={displayToast}
                 showRemoveButtons={true}
               />
             </div>
