@@ -20,7 +20,7 @@ const SwapFilter = ({ courses = [], swaps = [], onFilterChange }) => {
   const getAvailableCourses = () => {
     const sectionIds = new Set();
     swaps.forEach(swap => {
-      if (swap.getsectionid) sectionIds.add(swap.getsectionid);
+      if (swap.getSectionId) sectionIds.add(swap.getSectionId);
       if (swap.askingSections) {
         swap.askingSections.forEach(id => sectionIds.add(id));
       }
@@ -85,7 +85,7 @@ const SwapFilter = ({ courses = [], swaps = [], onFilterChange }) => {
     <div className="relative" ref={dropdownRef}>
       <div
         onClick={() => setOpen(!open)}
-        className="px-4 py-2 bg-blue-900 hover:bg-blue-600 text-white rounded-lg cursor-pointer transition-all flex items-center gap-2"
+        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer transition-all flex items-center gap-2"
       >
         <Filter className="w-4 h-4" />
         <span>Filter Swaps</span>
