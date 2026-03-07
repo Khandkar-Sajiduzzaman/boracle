@@ -4,13 +4,14 @@ import { db, eq, getCurrentEpoch } from "@/lib/db";
 import { courseSwap, askSectionId } from "@/lib/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 import globalInfo from "@/constants/globalInfo";
+import { publishJson } from "@/scripts/publish";
 
 export async function GET(request) {
   try {
     // Get authenticated user session
     const session = await auth();
     console.log("Routine List API accessed by:", session?.user?.email);
-    
+
     if (!session || !session.user?.email) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -18,25 +19,37 @@ export async function GET(request) {
       );
     }
 
-    // Fetch all course swap information 
+    // Fetch all swaps and all asking sections in just 2 queries
     const swapRequest = await db
       .select()
-      .from(courseSwap)
-      .where(eq(courseSwap.isDone, false));
-    
-    let swaps = [];
+      .from(courseSwap);
 
-    for (const element of swapRequest) {
-      const askingSections = await db
-        .select({ askSectionId: askSectionId.askSectionId })
-        .from(askSectionId)
-        .where(eq(askSectionId.swapId, element.swapId));
-      
-      element.askingSections = askingSections.map(item => item.askSectionId);
-      swaps.push(element);
+    const allAskingSections = await db
+      .select({
+        swapId: askSectionId.swapId,
+        askSectionId: askSectionId.askSectionId,
+      })
+      .from(askSectionId);
+
+    // Group asking sections by swapId in memory
+    const askingMap = {};
+    for (const row of allAskingSections) {
+      if (!askingMap[row.swapId]) askingMap[row.swapId] = [];
+      askingMap[row.swapId].push(row.askSectionId);
     }
 
-    console.log("Swap Requests:", swaps);
+    const currentUserEmail = session.user.email;
+    const swaps = swapRequest.map(element => ({
+      swapId: element.swapId,
+      isDone: element.isDone,
+      getSectionId: element.getSectionId,
+      createdAt: element.createdAt,
+      semester: element.semester,
+      isOwner: currentUserEmail === element.uEmail,
+      askingSections: askingMap[element.swapId] || [],
+    }));
+
+    // console.log("Swap Requests:", swaps);
 
     return NextResponse.json(swaps, { status: 200 });
   } catch (error) {
@@ -50,14 +63,14 @@ export async function POST(request) {
     // Get authenticated user session
     const session = await auth();
     console.log("Swap List API accessed by:", session?.user?.email);
-    
+
     if (!session || !session.user?.email) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
-    
+
     // Fetching the Swap request 
     const uEmail = session.user.email;
     const { givingSection, askingSection } = await request.json();
@@ -80,6 +93,20 @@ export async function POST(request) {
           swapId: createSwap[0].swapId,
           askSectionId: element,
         });
+    }
+
+    // SectionID that exists
+
+    try {
+      const response = await publishJson({
+        timestamp: new Date().toISOString(),
+        sectionID: givingSection,
+        askingSection: askingSection,
+        eventType: "swapCreated"
+      }, { topic: "swap", connectLocal: false });
+      console.log("Mercure publish response:", response);
+    } catch (error) {
+      console.error("Error publishing to Mercure:", error);
     }
 
     return NextResponse.json({ success: true, swapId: createSwap[0].swapId }, { status: 200 });

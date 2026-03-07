@@ -6,29 +6,29 @@ const navbarItems = [
         enabled: true
     },
     {
-        title: 'Changelog',
-        href: '/changelog',
+        title: 'Contributors',
+        href: '/contributors',
         description: 'Updates and changes to the Oracle platform',
         enabled: true
     },
     {
-        title: 'Swap',
-        href: '/swap',
-        description: 'A centralized platform to swap courses with other students. No more endless emails and waiting for replies!',
+        title: 'Changelog',
+        href: '/changelog',
+        description: 'Track all updates and changes to the Boracle platform',
         enabled: true
     },
-    {
-        title: 'Review',
-        href: '/faculty-review',
-        description: 'Rate your faculty and provide feedback. Scrolling through useless reviews is a thing of the past!',
-        enabled: false
-    },
-    {
-        title: "Seat Status",
-        href: '/seat-status',
-        description: 'Get live updates on seat status for all courses. No more countless refreshes to know if you got in or not!',
-        enabled: true
-    }
+    // {
+    //     title: 'Review',
+    //     href: '/faculty-review',
+    //     description: 'Rate your faculty and provide feedback. Scrolling through useless reviews is a thing of the past!',
+    //     enabled: false
+    // },
+    // {
+    //     title: "Seat Status",
+    //     href: '/seat-status',
+    //     description: 'Get live updates on seat status for all courses. No more countless refreshes to know if you got in or not!',
+    //     enabled: true
+    // }
 ]
 
 export default navbarItems;

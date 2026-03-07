@@ -3,38 +3,49 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Search, Filter, Plus, Calendar, Clock, X, Users, BookOpen, Download, Save, AlertCircle, ChevronDown } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import RoutineTableGrid from '@/components/routine/RoutineTableGrid';
-import ExportRoutinePNG from '@/components/routine/ExportRoutinePNG';
+import RoutineView from '@/components/routine/RoutineView';
 import { toast } from 'sonner';
-
-
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileCourseCard from '@/components/ui/MobileCourseCard';
+import CourseBottomSheet from '@/components/ui/CourseBottomSheet';
+import { useFaculty } from '@/app/contexts/FacultyContext';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { Skeleton } from '@/components/ui/skeleton';
+import SignInPrompt from '@/components/shared/SignInPrompt';
 
 const PreRegistrationPage = () => {
   const { data: session } = useSession();
   const [courses, setCourses] = useState([]);
-  const [filteredCourses, setFilteredCourses] = useState([]);
-  const [displayedCourses, setDisplayedCourses] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showRoutineModal, setShowRoutineModal] = useState(false);
-  const [selectedCourses, setSelectedCourses] = useState([]);
+  const [seatAnimations, setSeatAnimations] = useState({}); // Keep track of animations { sectionId: 'decrease' | 'increase' }
+  const [selectedCourses, setSelectedCourses] = useLocalStorage('boracle_selected_courses', []);
   const [savingRoutine, setSavingRoutine] = useState(false);
-  const [creditLimitWarning, setCreditLimitWarning] = useState(false);
   const [customToast, setCustomToast] = useState({ show: false, message: '', type: 'success' });
   const [filters, setFilters] = useState({
     hideFilled: false,
-    avoidFaculties: []
+    avoidFaculties: [],
+    labFilter: 'all', // 'all', 'with-lab', 'without-lab'
+    onlySelected: false,
   });
   const [facultySearch, setFacultySearch] = useState('');
   const [facultyDropdownOpen, setFacultyDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [displayCount, setDisplayCount] = useState(50);
-  const [facultyMap, setFacultyMap] = useState({});
+  const { getFacultyDetails } = useFaculty();
   const [hoveredFaculty, setHoveredFaculty] = useState(null);
   const [facultyTooltipPosition, setFacultyTooltipPosition] = useState({ x: 0, y: 0 });
   const [facultyImageError, setFacultyImageError] = useState(false);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [bottomSheetCourse, setBottomSheetCourse] = useState(null);
+  const [showSelectedDrawer, setShowSelectedDrawer] = useState(false);
+  const isMobile = useIsMobile();
+  const [mounted, setMounted] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const observerRef = useRef();
   const lastCourseRef = useRef();
   const routineRef = useRef(null);
@@ -42,32 +53,23 @@ const PreRegistrationPage = () => {
   const facultyListRef = useRef(null);
   const filterDropdownRef = useRef(null);
 
-  // Helper to get faculty details for a course
-  const getFacultyDetails = useCallback((faculties) => {
-    if (!faculties) return { facultyName: null, facultyEmail: null, imgUrl: null };
-    
-    // Get the first initial from the faculties string
-    const firstInitial = faculties.split(',')[0]?.trim().toUpperCase();
-    const facultyInfo = facultyMap[firstInitial];
-    
-    if (facultyInfo) {
-      return {
-        facultyName: facultyInfo.facultyName,
-        facultyEmail: facultyInfo.email,
-        imgUrl: facultyInfo.imgUrl,
-      };
-    }
-    return { facultyName: null, facultyEmail: null, imgUrl: null };
-  }, [facultyMap]);
+
+
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
+
+
 
   // Enrich selected courses with faculty details
   const enrichedSelectedCourses = useMemo(() => {
     return selectedCourses.map(course => {
-      const { facultyName, facultyEmail } = getFacultyDetails(course.faculties);
+      const { facultyName, facultyEmail, imgUrl } = getFacultyDetails(course.faculties);
       return {
         ...course,
         employeeName: facultyName,
         employeeEmail: facultyEmail,
+        imgUrl,
       };
     });
   }, [selectedCourses, getFacultyDetails]);
@@ -87,7 +89,8 @@ const PreRegistrationPage = () => {
       }
     });
     return Array.from(facultySet).sort();
-  }, [courses]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courses.length]);
 
   // Calculate total credits
   const totalCredits = useMemo(() => {
@@ -113,21 +116,14 @@ const PreRegistrationPage = () => {
           if (sectionA > sectionB) return 1;
           return 0;
         });
-        
+
         // Set courses immediately so UI loads
         setCourses(data);
-        setFilteredCourses(data);
         setLoading(false);
-        
-        // Fetch all faculty data in the background (single query, non-blocking)
-        fetch('/api/faculty/lookup')
-          .then(res => res.json())
-          .then(facultyData => {
-            if (facultyData.success) {
-              setFacultyMap(facultyData.facultyMap);
-            }
-          })
-          .catch(err => console.error('Error fetching faculty data:', err));
+
+        console.log(data);
+
+
       } catch (error) {
         console.error('Error fetching courses:', error);
         setLoading(false);
@@ -135,6 +131,99 @@ const PreRegistrationPage = () => {
     };
     fetchCourses();
   }, []);
+
+  // Handle Mercure Real-time Seat Updates
+  useEffect(() => {
+    // Only connect if we have courses loaded
+    if (courses.length === 0) return;
+
+    const url = new URL('https://mercure.eniamza.com/.well-known/mercure');
+    // Using a general topic or specific to pre-reg seats
+    url.searchParams.append('topic', 'seatstatus');
+
+    const eventSource = new EventSource(url);
+    const pendingUpdates = {};
+
+    eventSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        // Expecting format like {"timestamp":"2026...","seatStatus":{"182197":34,"182198":34}}
+        if (payload && payload.seatStatus) {
+          // Accumulate updates
+          Object.assign(pendingUpdates, payload.seatStatus);
+        }
+      } catch (e) {
+        console.error('Error parsing Mercure seat update', e);
+      }
+    };
+
+    const flushInterval = setInterval(() => {
+      if (Object.keys(pendingUpdates).length === 0) return;
+
+      const currentUpdates = { ...pendingUpdates };
+
+      // Clear pending updates
+      for (const key in pendingUpdates) delete pendingUpdates[key];
+
+      setCourses(prevCourses => {
+        let hasChanges = false;
+        const newAnimations = {};
+
+        const nextCourses = prevCourses.map(course => {
+          if (currentUpdates[course.sectionId] !== undefined) {
+            const newConsumedSeat = currentUpdates[course.sectionId];
+
+            // Only update if the value actually changed
+            if (course.consumedSeat !== newConsumedSeat) {
+              hasChanges = true;
+
+              // Determine animation type
+              if (newConsumedSeat < course.consumedSeat) {
+                newAnimations[course.sectionId] = 'decrease'; // Seats freed up -> Green
+              } else {
+                newAnimations[course.sectionId] = 'increase'; // Seats taken -> Red
+              }
+
+              return { ...course, consumedSeat: newConsumedSeat };
+            }
+          }
+          return course;
+        });
+
+        if (hasChanges) {
+          // Trigger animations
+          setSeatAnimations(prev => ({ ...prev, ...newAnimations }));
+
+          // Clear this specific batch of animations after 2.5 seconds
+          // Using a detached timeout prevents overlapping updates from keeping the class indefinitely
+          setTimeout(() => {
+            setSeatAnimations(prev => {
+              const cleared = { ...prev };
+              let changed = false;
+              Object.keys(newAnimations).forEach(id => {
+                // Only delete if the animation is STILL the one we set
+                if (cleared[id] === newAnimations[id]) {
+                  delete cleared[id];
+                  changed = true;
+                }
+              });
+              return changed ? cleared : prev;
+            });
+          }, 2500);
+
+          return nextCourses;
+        }
+
+        return prevCourses;
+      });
+
+    }, 2000);
+
+    return () => {
+      eventSource.close();
+      clearInterval(flushInterval);
+    };
+  }, [courses.length > 0]); // Dependency on the fact we have loaded courses at least once
 
   // Debounce search term
   useEffect(() => {
@@ -145,48 +234,95 @@ const PreRegistrationPage = () => {
   }, [searchTerm]);
 
   // Apply filters and search
-  useEffect(() => {
+  const filteredCourses = useMemo(() => {
     let filtered = [...courses];
-    
+
     // Apply search
     if (debouncedSearchTerm) {
-      filtered = filtered.filter(course => 
+      filtered = filtered.filter(course =>
         course.courseCode?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
         course.faculties?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
         course.sectionName?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
       );
     }
-    
+
     // Apply filters
     if (filters.hideFilled) {
-      filtered = filtered.filter(course => 
-        course.capacity > course.consumedSeat
+      filtered = filtered.filter(course =>
+        course.capacity > course.consumedSeat || seatAnimations[course.sectionId] // keep if animating
       );
     }
-    
+
     if (filters.avoidFaculties.length > 0) {
-      filtered = filtered.filter(course => 
-        !filters.avoidFaculties.some(faculty => 
+      filtered = filtered.filter(course =>
+        !filters.avoidFaculties.some(faculty =>
           course.faculties?.toLowerCase().includes(faculty.toLowerCase())
         )
       );
     }
-    
-    setFilteredCourses(filtered);
-    setDisplayCount(50);
-  }, [debouncedSearchTerm, courses, filters]);
 
-  // Update displayed courses when filtered courses or display count changes
-  useEffect(() => {
-    setDisplayedCourses(filteredCourses.slice(0, displayCount));
+    if (filters.labFilter === 'with-lab') {
+      filtered = filtered.filter(course => course.labSchedules && course.labSchedules.length > 0);
+    } else if (filters.labFilter === 'without-lab') {
+      filtered = filtered.filter(course => !course.labSchedules || course.labSchedules.length === 0);
+    }
+
+    if (filters.onlySelected) {
+      filtered = filtered.filter(course => selectedCourses.some(c => c.sectionId === course.sectionId));
+    }
+
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Specific handling for nested or calculated fields
+        if (sortConfig.key === 'available') {
+          aValue = (a.capacity || 0) - (a.consumedSeat || 0);
+          bValue = (b.capacity || 0) - (b.consumedSeat || 0);
+        } else if (sortConfig.key === 'exam') {
+          aValue = a.sectionSchedule?.finalExamDetail || '';
+          bValue = b.sectionSchedule?.finalExamDetail || '';
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+
+        // Secondary sort by section name if primary sort values are equal
+        // This is especially important for courseCode sort
+        const sectionA = a.sectionName || '';
+        const sectionB = b.sectionName || '';
+
+        if (sectionA < sectionB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (sectionA > sectionB) return sortConfig.direction === 'asc' ? 1 : -1;
+
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [debouncedSearchTerm, courses, filters, sortConfig, seatAnimations, selectedCourses]);
+
+  const displayedCourses = useMemo(() => {
+    return filteredCourses.slice(0, displayCount);
   }, [filteredCourses, displayCount]);
+
+  // Reset display count when filters change
+  useEffect(() => {
+    setDisplayCount(50);
+  }, [debouncedSearchTerm, filters, sortConfig, selectedCourses]);
 
   // Infinite scroll observer
   useEffect(() => {
     if (loading || displayCount >= filteredCourses.length) return;
-    
+
     const currentRef = lastCourseRef.current;
-    
+
     const observer = new IntersectionObserver(
       entries => {
         const entry = entries[0];
@@ -199,16 +335,16 @@ const PreRegistrationPage = () => {
           });
         }
       },
-      { 
+      {
         threshold: 0.1,
         rootMargin: '50px'
       }
     );
-    
+
     if (currentRef) {
       observer.observe(currentRef);
     }
-    
+
     return () => {
       if (currentRef) {
         observer.unobserve(currentRef);
@@ -230,6 +366,29 @@ const PreRegistrationPage = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Back button/gesture handler — close modals instead of navigating away
+  useEffect(() => {
+    const handlePopState = (event) => {
+      // If returning to this specific level, do not close!
+      if (event.state?.id === 'prePreregRoutineModal') return;
+
+      if (bottomSheetCourse) {
+        // CourseBottomSheet handles its own history now, but if it's open we shouldn't force close the routine modal
+        return;
+      } else if (showRoutineModal) {
+        setShowRoutineModal(false);
+      }
+    };
+
+    // Push state when routine modal opens
+    if (showRoutineModal) {
+      window.history.pushState({ id: 'prePreregRoutineModal' }, '');
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [showRoutineModal, bottomSheetCourse]);
 
   // Reset highlighted index when search changes
   useEffect(() => {
@@ -259,7 +418,7 @@ const PreRegistrationPage = () => {
   // Format schedule with newlines
   const formatSchedule = (schedules) => {
     if (!schedules || schedules.length === 0) return 'TBA';
-    return schedules.map(s => 
+    return schedules.map(s =>
       `${s.day.slice(0, 3)} ${formatTime(s.startTime)}-${formatTime(s.endTime)}`
     ).join('\n');
   };
@@ -268,25 +427,24 @@ const PreRegistrationPage = () => {
   const addToRoutine = (course) => {
     const existsBySection = selectedCourses.find(c => c.sectionId === course.sectionId);
     const existsByCourse = selectedCourses.find(c => c.courseCode === course.courseCode);
-    
+
     if (existsBySection) {
       // Removing course
-      setCreditLimitWarning(false);
+      // Removing course
       setSelectedCourses(prev => prev.filter(c => c.sectionId !== course.sectionId));
     } else if (existsByCourse) {
       // Same course already exists (different section) - prevent adding and show warning
-      toast.error(`${course.courseCode} is already in your routine (${existsByCourse.sectionName}). Remove it first to add a different section.`);
+      toast.error(`${course.courseCode} is already in your routine (Sec: ${existsByCourse.sectionName}). Remove it first to add a different section.`);
       return; // Don't proceed further
     } else {
       // Adding new course - check credit limit
       const newTotalCredits = selectedCourses.reduce((sum, c) => sum + (c.courseCredit || 0), 0) + (course.courseCredit || 0);
-      
-      if (newTotalCredits > 15) {
-        setCreditLimitWarning(true);
-        setTimeout(() => setCreditLimitWarning(false), 3000);
+
+      if (newTotalCredits > 25) {
+        toast.error('Cannot add more than 25 credits!');
         return; // Don't proceed further
       }
-      
+
       setSelectedCourses(prev => [...prev, course]);
     }
   };
@@ -294,7 +452,7 @@ const PreRegistrationPage = () => {
   // Save routine to database
   const saveRoutine = async () => {
     if (!session?.user?.email) {
-      toast.error('Please login to save your routine');
+      setShowSignInPrompt(true);
       return;
     }
 
@@ -304,12 +462,12 @@ const PreRegistrationPage = () => {
     }
 
     setSavingRoutine(true);
-    
+
     try {
       // Extract section IDs and sort them chronologically for consistent comparison
       const sectionIds = selectedCourses.map(course => course.sectionId).sort();
       const routineStr = btoa(JSON.stringify(sectionIds));
-      
+
       // First, fetch existing routines to check for duplicates
       const checkResponse = await fetch('/api/routine', {
         method: 'GET',
@@ -317,21 +475,21 @@ const PreRegistrationPage = () => {
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (checkResponse.ok) {
         const existingData = await checkResponse.json();
         const existingRoutines = existingData.routines || [];
-        
+
         // Check if the exact routine already exists
         const duplicateRoutine = existingRoutines.find(r => r.routineStr === routineStr);
-        
+
         if (duplicateRoutine) {
           toast.error('This exact routine is already saved!');
           setSavingRoutine(false);
           return;
         }
       }
-      
+
       // No duplicate found, proceed to save
       const response = await fetch('/api/routine', {
         method: 'POST',
@@ -376,14 +534,54 @@ const PreRegistrationPage = () => {
     }
   };
 
+  // Handle sort click
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key) {
+      if (sortConfig.direction === 'asc') {
+        direction = 'desc';
+      } else if (sortConfig.direction === 'desc') {
+        // Reset to default (no sort key implies default sorting)
+        setSortConfig({ key: null, direction: 'asc' });
+        return;
+      }
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Render sort icon
+  const renderSortIcon = (columnKey) => {
+    const isActive = sortConfig.key === columnKey;
+    const isAsc = isActive && sortConfig.direction === 'asc';
+    const isDesc = isActive && sortConfig.direction === 'desc';
+
+    return (
+      <div className="flex flex-col -space-y-1 ml-1">
+        <svg
+          className={`w-3 h-3 ${isAsc ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}
+          fill="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path d="M12 4l-8 8h16l-8-8z" />
+        </svg>
+        <svg
+          className={`w-3 h-3 ${isDesc ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}
+          fill="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path d="M12 20l-8-8h16l-8 8z" />
+        </svg>
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen text-gray-100">
+    <div className="min-h-screen text-gray-100 pb-24">
       {/* Toast Notification */}
       {customToast.show && (
-        <div className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 ${
-          customToast.type === 'success' ? 'bg-green-600 text-white' : 
+        <div className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 ${customToast.type === 'success' ? 'bg-green-600 text-white' :
           customToast.type === 'info' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
-        }`}>
+          }`}>
           {customToast.type === 'success' ? (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -400,18 +598,13 @@ const PreRegistrationPage = () => {
       )}
 
       {/* Credit Limit Warning */}
-      {creditLimitWarning && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
-          <AlertCircle className="w-5 h-5" />
-          Cannot add more than 15 credits!
-        </div>
-      )}
+
 
       {/* Header */}
       <div className="sticky top-16 z-40 bg-white dark:bg-gray-900 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800 -mx-6 -mt-6 px-6 pt-6 pb-4">
         <div className="container mx-auto">
           {/* <h1 className="text-2xl font-bold text-white-500 mb-4 text-center">Build Routines with Confidence</h1> */}
-          
+
           {/* Search Bar */}
           <div className="flex gap-2">
             <div className="flex-1 relative">
@@ -424,6 +617,7 @@ const PreRegistrationPage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+
             <button
               onClick={() => setShowFilterModal(true)}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors"
@@ -431,12 +625,11 @@ const PreRegistrationPage = () => {
               <Filter className="w-5 h-5" />
               Filters
             </button>
-            
+
             {/* Active Filters Dropdown - Shows when filters are applied */}
             {/* Saihan: Why are these comments so hard to read, ugh */}
-            {(filters.hideFilled || filters.avoidFaculties.length > 0) && (
+            {(filters.hideFilled || filters.avoidFaculties.length > 0 || filters.labFilter !== 'all' || filters.onlySelected) && (
               <div className="relative" ref={filterDropdownRef}>
-                {/* Dropdown Trigger Button */}
                 <button
                   onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
                   className="h-[50px] px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center gap-2 transition-colors"
@@ -446,7 +639,7 @@ const PreRegistrationPage = () => {
                     <Filter className="w-5 h-5" />
                     {/* Badge showing count of active filters */}
                     <span className="absolute -top-1.5 -right-1.5 bg-white text-red-600 text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                      {(filters.hideFilled ? 1 : 0) + filters.avoidFaculties.length}
+                      {(filters.hideFilled ? 1 : 0) + filters.avoidFaculties.length + (filters.labFilter !== 'all' ? 1 : 0) + (filters.onlySelected ? 1 : 0)}
                     </span>
                   </div>
                 </button>
@@ -461,7 +654,7 @@ const PreRegistrationPage = () => {
                         {/* Clear All Button */}
                         <button
                           onClick={() => {
-                            setFilters({ hideFilled: false, avoidFaculties: [] });
+                            setFilters({ hideFilled: false, avoidFaculties: [], labFilter: 'all', onlySelected: false });
                             setFilterDropdownOpen(false);
                           }}
                           className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
@@ -483,6 +676,22 @@ const PreRegistrationPage = () => {
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                             <span className="text-sm text-gray-700 dark:text-gray-300">Hide Filled Sections</span>
+                          </div>
+                          <X className="w-4 h-4 text-gray-400 group-hover:text-red-500 transition-colors" />
+                        </button>
+                      )}
+
+                      {/* Lab Filter Status */}
+                      {filters.labFilter !== 'all' && (
+                        <button
+                          onClick={() => setFilters(prev => ({ ...prev, labFilter: 'all' }))}
+                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors group mt-1"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                              {filters.labFilter === 'with-lab' ? 'Only Courses with Labs' : 'Only Courses without Labs'}
+                            </span>
                           </div>
                           <X className="w-4 h-4 text-gray-400 group-hover:text-red-500 transition-colors" />
                         </button>
@@ -511,54 +720,217 @@ const PreRegistrationPage = () => {
                           ))}
                         </div>
                       )}
+
+                      {/* Only Selected Courses Filter Item */}
+                      {filters.onlySelected && (
+                        <button
+                          onClick={() => setFilters(prev => ({ ...prev, onlySelected: false }))}
+                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors group mt-1"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Only Show Selected</span>
+                          </div>
+                          <X className="w-4 h-4 text-gray-400 group-hover:text-red-500 transition-colors" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
             )}
           </div>
-          
-          {/* Selected Courses Tags */}
           {selectedCourses.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {selectedCourses.map(course => (
-                <span
-                  key={course.sectionId}
-                  className="px-3 py-1.5 bg-blue-100 dark:bg-blue-500/20 border border-blue-300 dark:border-blue-500/50 rounded-full text-sm flex items-center gap-2 text-blue-700 dark:text-blue-300"
+            isMobile ? (
+              <div className="mt-3">
+                <button
+                  onClick={() => setShowSelectedDrawer(!showSelectedDrawer)}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg text-sm text-blue-700 dark:text-blue-300"
                 >
-                  {course.courseCode}-[{course.sectionName}]-{course.faculties || 'TBA'}
-                  <button
-                    onClick={() => addToRoutine(course)}
-                    className="hover:text-blue-500 dark:hover:text-blue-200 transition-colors"
+                  <span className="font-medium">{selectedCourses.length} course{selectedCourses.length > 1 ? 's' : ''} selected</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showSelectedDrawer ? 'rotate-180' : ''}`} />
+                </button>
+                <div className={`overflow-hidden transition-all duration-200 ease-in-out ${showSelectedDrawer ? 'max-h-60 opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedCourses.map(course => (
+                      <span
+                        key={course.sectionId}
+                        className="px-3 py-1.5 bg-blue-100 dark:bg-blue-500/20 border border-blue-300 dark:border-blue-500/50 rounded-full text-sm flex items-center gap-2 text-blue-700 dark:text-blue-300"
+                      >
+                        {course.courseCode}-[{course.sectionName}]
+                        <button
+                          onClick={() => addToRoutine(course)}
+                          className="hover:text-blue-500 dark:hover:text-blue-200 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {selectedCourses.map(course => (
+                  <span
+                    key={course.sectionId}
+                    className="px-3 py-1.5 bg-blue-100 dark:bg-blue-500/20 border border-blue-300 dark:border-blue-500/50 rounded-full text-sm flex items-center gap-2 text-blue-700 dark:text-blue-300"
                   >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
+                    {course.courseCode}-[{course.sectionName}]-{course.faculties || 'TBA'}
+                    <button
+                      onClick={() => addToRoutine(course)}
+                      className="hover:text-blue-500 dark:hover:text-blue-200 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )
           )}
         </div>
       </div>
 
-      {/* Course Table */}
+      {/* Course Table / Mobile Cards */}
       <div className="container mx-auto mt-6">
         {loading ? (
-          <div className="text-center py-8 text-gray-600 dark:text-gray-300">Loading courses...</div>
+          <div className="space-y-0">
+            {/* Skeleton table header */}
+            <div className="flex gap-2 py-3 border-b border-gray-200 dark:border-gray-800">
+              <Skeleton className="h-4 w-[140px]" />
+              <Skeleton className="h-4 w-[100px]" />
+              <Skeleton className="h-4 w-[150px]" />
+              <Skeleton className="h-4 w-[80px]" />
+              <Skeleton className="h-4 w-[80px]" />
+              <Skeleton className="h-4 w-[80px]" />
+              <Skeleton className="h-4 w-[140px]" />
+              <Skeleton className="h-4 w-[140px]" />
+              <Skeleton className="h-4 w-[80px]" />
+            </div>
+            {/* Skeleton rows */}
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div key={i} className="flex items-center gap-2 py-3 border-b border-gray-200 dark:border-gray-800">
+                <Skeleton className="h-4 w-[140px]" />
+                <Skeleton className="h-4 w-[100px]" />
+                <Skeleton className="h-4 w-[150px]" />
+                <Skeleton className="h-4 w-[80px]" />
+                <Skeleton className="h-4 w-[80px]" />
+                <Skeleton className="h-4 w-[80px]" />
+                <Skeleton className="h-5 w-[140px]" />
+                <Skeleton className="h-5 w-[140px]" />
+                <Skeleton className="h-8 w-8 rounded-lg mx-auto" />
+              </div>
+            ))}
+          </div>
+        ) : isMobile ? (
+          /* Mobile: Card layout */
+          <div className="space-y-3 px-1">
+            {displayedCourses.map((course, index) => {
+              const isLast = index === displayedCourses.length - 1;
+              const isSelected = !!selectedCourses.find(c => c.sectionId === course.sectionId);
+
+              return (
+                <div
+                  key={course.sectionId}
+                  ref={isLast && displayCount < filteredCourses.length ? lastCourseRef : null}
+                >
+                  <MobileCourseCard
+                    course={course}
+                    isSelected={isSelected}
+                    seatAnimation={seatAnimations[course.sectionId]}
+                    onToggle={addToRoutine}
+                    onCardTap={(c) => {
+                      // Enrich with faculty data before showing bottom sheet
+                      const { facultyName, facultyEmail, imgUrl } = getFacultyDetails(c.faculties);
+                      setBottomSheetCourse({
+                        ...c,
+                        employeeName: facultyName,
+                        employeeEmail: facultyEmail,
+                        imgUrl,
+                      });
+                    }}
+                    formatTime={formatTime}
+                    formatSchedule={formatSchedule}
+                  />
+                </div>
+              );
+            })}
+
+            {displayCount < filteredCourses.length && (
+              <div className="text-center py-4">
+                <div className="text-gray-600 dark:text-gray-400 mb-4 text-sm">
+                  Showing {displayCount} of {filteredCourses.length} courses
+                </div>
+                <button
+                  onClick={() => setDisplayCount(prev => Math.min(prev + 50, filteredCourses.length))}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  Load More ({Math.min(50, filteredCourses.length - displayCount)} remaining)
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-800">
-                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">Course Code</th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">Fac. Init.</th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">Prereq</th>
-                  <th className="text-center py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">Seat Cap.</th>
-                  <th className="text-center py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">Booked</th>
-                  <th className="text-center py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">Available</th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">Class Schedule</th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">Lab Schedule</th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">Exam Day</th>
-                  <th className="text-center py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400">Action</th>
+                  <th
+                    className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors group select-none w-[140px]"
+                    onClick={() => handleSort('courseCode')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Course Code
+                      {renderSortIcon('courseCode')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors group select-none min-w-[100px]"
+                    onClick={() => handleSort('faculties')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Fac. Init.
+                      {renderSortIcon('faculties')}
+                    </div>
+                  </th>
+                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400 w-[150px]">Prereq</th>
+                  <th
+                    className="text-center py-3 px-1 text-sm font-medium text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors group select-none min-w-[100px]"
+                    onClick={() => handleSort('capacity')}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      Seat Cap.
+                      {renderSortIcon('capacity')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-center py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors group select-none min-w-[100px]"
+                    onClick={() => handleSort('consumedSeat')}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      Booked
+                      {renderSortIcon('consumedSeat')}
+                    </div>
+                  </th>
+                  <th
+                    className="text-center py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors group select-none min-w-[100px]"
+                    onClick={() => handleSort('available')}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      Available
+                      {renderSortIcon('available')}
+                    </div>
+                  </th>
+                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[160px]">Class Schedule</th>
+                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[160px]">Lab Schedule</th>
+                  <th
+                    className="text-left py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[120px]"
+                  >
+                    <div className="flex items-center gap-1">
+                      Exam Day
+                    </div>
+                  </th>
+                  <th className="text-center py-3 px-2 text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[80px]">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -566,23 +938,33 @@ const PreRegistrationPage = () => {
                   const isLast = index === displayedCourses.length - 1;
                   const isSelected = selectedCourses.find(c => c.sectionId === course.sectionId);
                   const availableSeats = course.capacity - course.consumedSeat;
-                  
-                    return (
-                    <tr 
+
+                  return (
+                    <tr
                       key={course.sectionId}
                       ref={isLast && displayCount < filteredCourses.length ? lastCourseRef : null}
-                      className={`border-b border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors ${isSelected ? 'bg-green-50 dark:bg-green-900/20' : ''}`}
+                      className={`
+                        border-b border-gray-200 dark:border-gray-800 transition-colors duration-500
+                        ${seatAnimations[course.sectionId] === 'decrease'
+                          ? 'bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700'
+                          : seatAnimations[course.sectionId] === 'increase'
+                            ? 'bg-red-100 dark:bg-red-900/40 border-red-300 dark:border-red-700'
+                            : isSelected
+                              ? 'bg-green-200 dark:bg-green-500/30 hover:bg-green-300 dark:hover:bg-green-500/40'
+                              : 'hover:bg-gray-100 dark:hover:bg-gray-800/50'
+                        }
+                      `}
                     >
                       <td className="py-3 px-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {course.courseCode}-[{course.sectionName}]
+                        {course.courseCode}-[{course.sectionName}]
                       </td>
                       <td className="py-3 px-2 text-sm relative text-gray-900 dark:text-gray-100">
-                        <span 
-                          className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        <span
+                          className="cursor-pointer font-medium text-blue-600 dark:text-blue-400 underline decoration-dashed decoration-blue-300 dark:decoration-blue-700 hover:decoration-blue-600 dark:hover:decoration-blue-400 underline-offset-4 transition-colors"
                           onMouseEnter={(e) => {
                             if (course.faculties) {
                               const rect = e.currentTarget.getBoundingClientRect();
-                              setFacultyImageError(false); // Reset image error state for new faculty
+                              setFacultyImageError(false);
                               setHoveredFaculty({
                                 initial: course.faculties,
                                 ...getFacultyDetails(course.faculties)
@@ -604,37 +986,36 @@ const PreRegistrationPage = () => {
                       <td className="py-3 px-2 text-sm text-center text-gray-900 dark:text-gray-100">{course.capacity}</td>
                       <td className="py-3 px-2 text-sm text-center text-gray-900 dark:text-gray-100">{course.consumedSeat}</td>
                       <td className="py-3 px-2 text-sm text-center">
-                      <span className={`font-medium ${availableSeats > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {availableSeats}
-                      </span>
+                        <span className={`font-medium ${availableSeats > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {availableSeats}
+                        </span>
                       </td>
                       <td className="py-3 px-2 text-xs whitespace-pre-line text-gray-700 dark:text-gray-300">
-                      {formatSchedule(course.sectionSchedule?.classSchedules)}
+                        {formatSchedule(course.sectionSchedule?.classSchedules)}
                       </td>
                       <td className="py-3 px-2 text-xs whitespace-pre-line text-gray-700 dark:text-gray-300">
-                      {course.labSchedules?.length > 0 ? formatSchedule(course.labSchedules) : 'N/A'}
+                        {course.labSchedules?.length > 0 ? formatSchedule(course.labSchedules) : 'N/A'}
                       </td>
                       <td className="py-3 px-2 text-xs text-gray-700 dark:text-gray-300">
-                      {course.sectionSchedule?.finalExamDetail || 'TBA'}
+                        {course.sectionSchedule?.finalExamDetail || 'TBA'}
                       </td>
                       <td className="py-3 px-2 text-center">
-                      <button
-                        onClick={() => addToRoutine(course)}
-                        className={`p-2 rounded-lg transition-colors ${
-                        isSelected 
-                          ? 'bg-red-600 hover:bg-red-700 text-white' 
-                          : 'border border-gray-400 dark:border-white text-gray-700 dark:text-white hover:bg-green-600 hover:border-green-600 hover:text-white'
-                        }`}
-                      >
-                        {isSelected ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                      </button>
+                        <button
+                          onClick={() => addToRoutine(course)}
+                          className={`p-2 rounded-lg transition-colors ${isSelected
+                            ? 'bg-red-600 hover:bg-red-700 text-white'
+                            : 'border border-gray-400 dark:border-white text-gray-700 dark:text-white hover:bg-green-600 hover:border-green-600 hover:text-white'
+                            }`}
+                        >
+                          {isSelected ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        </button>
                       </td>
                     </tr>
-                    );
+                  );
                 })}
               </tbody>
             </table>
-            
+
             {displayCount < filteredCourses.length && (
               <div className="text-center py-4">
                 <div className="text-gray-600 dark:text-gray-400 mb-4">
@@ -653,315 +1034,352 @@ const PreRegistrationPage = () => {
       </div>
 
       {/* Filter Modal */}
-      {showFilterModal && (
-        <div 
-          className="fixed inset-0 bg-black/50 dark:bg-black/75 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowFilterModal(false)}
-        >
-          <div 
-            className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-blue-800/50 rounded-lg max-w-md w-full shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+      {
+        showFilterModal && (
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
+            onClick={() => setShowFilterModal(false)}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-blue-800/50">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Filters</h2>
-                <p className="text-sm text-gray-500 dark:text-blue-300/70">Customize your course view</p>
-              </div>
-              <button
-                onClick={() => setShowFilterModal(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-blue-800/30 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500 dark:text-blue-300" />
-              </button>
-            </div>
-            
-            {/* Content */}
-            <div className="p-4 space-y-5">
-              {/* Hide Filled Sections - Material Design Checkbox */}
-              <label className="flex items-center gap-3 cursor-pointer p-3 bg-gray-100 dark:bg-[#1e3a5f] rounded-lg hover:bg-gray-200 dark:hover:bg-[#234b7a] transition-colors">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={filters.hideFilled}
-                    onChange={(e) => setFilters(prev => ({ ...prev, hideFilled: e.target.checked }))}
-                    className="sr-only peer"
-                  />
-                  <div className="w-5 h-5 border-2 border-blue-500 dark:border-blue-400 rounded bg-transparent peer-checked:bg-blue-500 peer-checked:border-blue-500 transition-all duration-200 flex items-center justify-center">
-                    {filters.hideFilled && (
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="absolute inset-0 -m-2 rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-gray-100 dark:peer-focus-visible:ring-offset-[#1e3a5f]"></div>
-                </div>
+            <div
+              className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-blue-800/50 rounded-lg max-w-md w-full shadow-xl z-[70]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-blue-800/50">
                 <div>
-                  <span className="font-medium text-gray-900 dark:text-white">Hide Filled Sections</span>
-                  <p className="text-xs text-gray-500 dark:text-blue-300/70">Only show sections with available seats</p>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Filters</h2>
+                  <p className="text-sm text-gray-500 dark:text-blue-300/70">Customize your course view</p>
                 </div>
-              </label>
-              
-              {/* Avoid Faculties - Dropdown */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-blue-200">Avoid Faculties</label>
-                
-                {/* Selected Faculties Tags - above input */}
-                {filters.avoidFaculties.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {filters.avoidFaculties.map(faculty => (
-                      <span
-                        key={faculty}
-                        className="px-3 py-1.5 bg-red-100 dark:bg-red-500/20 border border-red-300 dark:border-red-500/50 rounded-full text-sm flex items-center gap-2 text-red-700 dark:text-red-300"
-                      >
-                        {faculty}
-                        <button
-                          onClick={() => removeFaculty(faculty)}
-                          className="hover:text-red-500 dark:hover:text-red-200 transition-colors"
+                <button
+                  onClick={() => setShowFilterModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-blue-800/30 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500 dark:text-blue-300" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-4 space-y-5">
+                {/* Avoid Faculties - Dropdown */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-blue-200">Avoid Faculties</label>
+
+                  {/* Selected Faculties Tags - above input */}
+                  {filters.avoidFaculties.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {filters.avoidFaculties.map(faculty => (
+                        <span
+                          key={faculty}
+                          className="px-3 py-1.5 bg-red-100 dark:bg-red-500/20 border border-red-300 dark:border-red-500/50 rounded-full text-sm flex items-center gap-2 text-red-700 dark:text-red-300"
                         >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                
-                <div className="relative" ref={facultyDropdownRef}>
-                  {/* Input with dropdown trigger */}
-                  <div className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 flex items-center">
-                    <input
-                      type="text"
-                      placeholder="Search faculties..."
-                      value={facultySearch}
-                      onChange={(e) => {
-                        setFacultySearch(e.target.value);
-                        setFacultyDropdownOpen(true);
-                      }}
-                      onFocus={() => setFacultyDropdownOpen(true)}
-                      onKeyDown={(e) => {
-                        const filteredList = cdnFacultyList.filter(initial => 
-                          initial.toLowerCase().includes(facultySearch.toLowerCase())
-                        );
-                        
-                        if (e.key === 'ArrowDown') {
-                          e.preventDefault();
-                          setHighlightedIndex(prev => Math.min(prev + 1, filteredList.length - 1));
-                        } else if (e.key === 'ArrowUp') {
-                          e.preventDefault();
-                          setHighlightedIndex(prev => Math.max(prev - 1, 0));
-                        } else if (e.key === 'Enter' && filteredList.length > 0) {
-                          e.preventDefault();
-                          const selected = filteredList[highlightedIndex];
-                          if (selected) {
-                            const isSelected = filters.avoidFaculties.includes(selected);
-                            if (isSelected) {
-                              removeFaculty(selected);
-                            } else {
-                              setFilters(prev => ({
-                                ...prev,
-                                avoidFaculties: [...prev.avoidFaculties, selected]
-                              }));
-                            }
-                            setFacultySearch('');
-                          }
-                        } else if (e.key === 'Escape') {
-                          setFacultyDropdownOpen(false);
-                        }
-                      }}
-                      className="flex-1 px-4 py-2.5 bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setFacultyDropdownOpen(!facultyDropdownOpen)}
-                      className="px-3 py-2.5 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors rounded-r-lg"
-                    >
-                      <ChevronDown className={`h-4 w-4 text-gray-500 dark:text-gray-400 transition-transform ${facultyDropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                  </div>
-                  
-                  {/* Dropdown - positioned to overflow modal */}
-                  {facultyDropdownOpen && (
-                    <div 
-                      className="absolute z-[9999] mt-1 w-full rounded-lg border border-gray-200 dark:border-blue-700/50 bg-white dark:bg-[#0f172a] shadow-xl"
-                      style={{ maxHeight: '320px' }}
-                    >
-                      <div 
-                        ref={facultyListRef}
-                        className="overflow-y-auto max-h-[320px] faculty-dropdown-scroll"
-                      >
-                        {cdnFacultyList
-                          .filter(initial => 
-                            initial.toLowerCase().includes(facultySearch.toLowerCase())
-                          )
-                          .slice(0, 100)
-                          .map((initial, index) => {
-                            const isSelected = filters.avoidFaculties.includes(initial);
-                            const isHighlighted = index === highlightedIndex;
-                            return (
-                              <div
-                                key={initial}
-                                data-index={index}
-                                className={`flex items-center px-3 py-2.5 cursor-pointer transition-colors ${
-                                  isHighlighted ? 'bg-blue-600 text-white' : isSelected ? 'bg-blue-100 dark:bg-blue-800/40' : 'hover:bg-gray-100 dark:hover:bg-[#1e3a5f]'
-                                }`}
-                                onClick={() => {
-                                  if (isSelected) {
-                                    removeFaculty(initial);
-                                  } else {
-                                    setFilters(prev => ({
-                                      ...prev,
-                                      avoidFaculties: [...prev.avoidFaculties, initial]
-                                    }));
-                                  }
-                                  setFacultySearch('');
-                                }}
-                                onMouseEnter={() => setHighlightedIndex(index)}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className={`font-medium text-sm ${isHighlighted ? 'text-white' : 'text-gray-900 dark:text-white'}`}>{initial}</div>
-                                </div>
-                                {isSelected && (
-                                  <div className={`ml-2 ${isHighlighted ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`}>
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        {cdnFacultyList.length === 0 && (
-                          <div className="py-4 text-center text-sm text-gray-500 dark:text-blue-300/70">Loading faculties...</div>
-                        )}
-                        {cdnFacultyList.length > 0 && 
-                         cdnFacultyList.filter(initial => 
-                           initial.toLowerCase().includes(facultySearch.toLowerCase())
-                         ).length === 0 && (
-                          <div className="py-4 text-center text-sm text-gray-500 dark:text-blue-300/70">No faculty found</div>
-                        )}
-                      </div>
+                          {faculty}
+                          <button
+                            onClick={() => removeFaculty(faculty)}
+                            className="hover:text-red-500 dark:hover:text-red-200 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
                     </div>
                   )}
+
+                  <div className="relative" ref={facultyDropdownRef}>
+                    {/* Input with dropdown trigger */}
+                    <div className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 flex items-center">
+                      <input
+                        type="text"
+                        placeholder="Search faculties..."
+                        value={facultySearch}
+                        onChange={(e) => {
+                          setFacultySearch(e.target.value);
+                          setFacultyDropdownOpen(true);
+                        }}
+                        onFocus={() => setFacultyDropdownOpen(true)}
+                        onKeyDown={(e) => {
+                          const filteredList = cdnFacultyList.filter(initial =>
+                            initial.toLowerCase().includes(facultySearch.toLowerCase())
+                          );
+
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setHighlightedIndex(prev => Math.min(prev + 1, filteredList.length - 1));
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setHighlightedIndex(prev => Math.max(prev - 1, 0));
+                          } else if (e.key === 'Enter' && filteredList.length > 0) {
+                            e.preventDefault();
+                            const selected = filteredList[highlightedIndex];
+                            if (selected) {
+                              const isSelected = filters.avoidFaculties.includes(selected);
+                              if (isSelected) {
+                                removeFaculty(selected);
+                              } else {
+                                setFilters(prev => ({
+                                  ...prev,
+                                  avoidFaculties: [...prev.avoidFaculties, selected]
+                                }));
+                              }
+                              setFacultySearch('');
+                            }
+                          } else if (e.key === 'Escape') {
+                            setFacultyDropdownOpen(false);
+                          }
+                        }}
+                        className="flex-1 px-4 py-2.5 bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFacultyDropdownOpen(!facultyDropdownOpen)}
+                        className="px-3 py-2.5 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors rounded-r-lg"
+                      >
+                        <ChevronDown className={`h-4 w-4 text-gray-500 dark:text-gray-400 transition-transform ${facultyDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Dropdown - positioned to overflow modal */}
+                    {facultyDropdownOpen && (
+                      <div
+                        className="absolute z-[9999] mt-1 w-full rounded-lg border border-gray-200 dark:border-blue-700/50 bg-white dark:bg-[#0f172a] shadow-xl"
+                        style={{ maxHeight: '320px' }}
+                      >
+                        <div
+                          ref={facultyListRef}
+                          className="overflow-y-auto max-h-[320px] faculty-dropdown-scroll"
+                        >
+                          {cdnFacultyList
+                            .filter(initial =>
+                              initial.toLowerCase().includes(facultySearch.toLowerCase())
+                            )
+                            .map((initial, index) => {
+                              const isSelected = filters.avoidFaculties.includes(initial);
+                              const isHighlighted = index === highlightedIndex;
+                              return (
+                                <div
+                                  key={initial}
+                                  data-index={index}
+                                  className={`flex items-center px-3 py-2.5 cursor-pointer transition-colors ${isHighlighted ? 'bg-blue-600 text-white' : isSelected ? 'bg-blue-300/60 dark:bg-blue-800/40' : 'hover:bg-gray-100 dark:hover:bg-[#1e3a5f]'
+                                    }`}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      removeFaculty(initial);
+                                    } else {
+                                      setFilters(prev => ({
+                                        ...prev,
+                                        avoidFaculties: [...prev.avoidFaculties, initial]
+                                      }));
+                                      setFacultySearch('');
+                                      setFacultyDropdownOpen(false);
+                                    }
+                                  }}
+                                  onMouseEnter={() => setHighlightedIndex(index)}
+                                >
+                                  <div className="flex-1">
+                                    <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">{initial}</div>
+                                  </div>
+                                  {isSelected && (
+                                    <X className="w-4 h-4 text-white" />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          {cdnFacultyList.filter(initial =>
+                            initial.toLowerCase().includes(facultySearch.toLowerCase())
+                          ).length === 0 && (
+                              <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
+                                No faculties found
+                              </div>
+                            )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Only Selected Sections - Material Design Checkbox */}
+                <label className="flex items-center gap-3 cursor-pointer p-3 bg-gray-100 dark:bg-[#1e3a5f] rounded-lg hover:bg-gray-200 dark:hover:bg-[#234b7a] transition-colors mb-3">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={filters.onlySelected}
+                      onChange={(e) => setFilters(prev => ({ ...prev, onlySelected: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-5 h-5 border-2 border-green-500 dark:border-green-400 rounded bg-transparent peer-checked:bg-green-500 peer-checked:border-green-500 transition-all duration-200 flex items-center justify-center">
+                      {filters.onlySelected && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="absolute inset-0 -m-2 rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-green-400 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-gray-100 dark:peer-focus-visible:ring-offset-[#1e3a5f]"></div>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-900 dark:text-white">Only Show Selected Courses</span>
+                    <p className="text-xs text-gray-500 dark:text-blue-300/70">Filters the list to display only the courses in your routine</p>
+                  </div>
+                </label>
+
+                {/* Hide Filled Sections - Material Design Checkbox */}
+                <label className="flex items-center gap-3 cursor-pointer p-3 bg-gray-100 dark:bg-[#1e3a5f] rounded-lg hover:bg-gray-200 dark:hover:bg-[#234b7a] transition-colors">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={filters.hideFilled}
+                      onChange={(e) => setFilters(prev => ({ ...prev, hideFilled: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-5 h-5 border-2 border-blue-500 dark:border-blue-400 rounded bg-transparent peer-checked:bg-blue-500 peer-checked:border-blue-500 transition-all duration-200 flex items-center justify-center">
+                      {filters.hideFilled && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="absolute inset-0 -m-2 rounded-full peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-gray-100 dark:peer-focus-visible:ring-offset-[#1e3a5f]"></div>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-900 dark:text-white">Hide Filled Sections</span>
+                    <p className="text-xs text-gray-500 dark:text-blue-300/70">Only show sections with available seats</p>
+                  </div>
+                </label>
+
+                {/* Lab Filter - Segmented Control */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-blue-200">Lab requirement</label>
+                  <div className="flex bg-gray-100 dark:bg-[#1e3a5f] rounded-lg p-1 gap-1">
+                    <button
+                      onClick={() => setFilters(prev => ({ ...prev, labFilter: 'all' }))}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${filters.labFilter === 'all'
+                        ? 'bg-white dark:bg-[#2a4d7d] text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-500 dark:text-blue-300 hover:text-gray-700 dark:hover:text-blue-200'
+                        }`}
+                    >
+                      All Courses
+                    </button>
+                    <button
+                      onClick={() => setFilters(prev => ({ ...prev, labFilter: 'with-lab' }))}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${filters.labFilter === 'with-lab'
+                        ? 'bg-white dark:bg-[#2a4d7d] text-purple-700 dark:text-purple-300 shadow-sm'
+                        : 'text-gray-500 dark:text-blue-300 hover:text-gray-700 dark:hover:text-blue-200'
+                        }`}
+                    >
+                      With Labs
+                    </button>
+                    <button
+                      onClick={() => setFilters(prev => ({ ...prev, labFilter: 'without-lab' }))}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${filters.labFilter === 'without-lab'
+                        ? 'bg-white dark:bg-[#2a4d7d] text-blue-700 dark:text-blue-300 shadow-sm'
+                        : 'text-gray-500 dark:text-blue-300 hover:text-gray-700 dark:hover:text-blue-200'
+                        }`}
+                    >
+                      Without Labs
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            {/* Footer */}
-            <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-blue-800/50 bg-gray-50 dark:bg-[#0c1629]">
-              <button
-                onClick={() => {
-                  setFilters({ hideFilled: false, avoidFaculties: [] });
-                  setShowFilterModal(false);
-                }}
-                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 rounded-lg transition-colors font-medium text-white"
-              >
-                Reset Filters
-              </button>
-              <button
-                onClick={() => setShowFilterModal(false)}
-                className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium text-white"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Routine Modal */}
-      {showRoutineModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-lg p-6 w-full max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">My Routine</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Total Credits: <span className={`font-bold ${totalCredits > 15 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                    {totalCredits}/15
-                  </span>
-                </p>
-              </div>
-              <div className="flex gap-2">
+              {/* Footer */}
+              <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-blue-800/50 bg-gray-50 dark:bg-[#0c1629]">
                 <button
-                  onClick={saveRoutine}
-                  disabled={savingRoutine || !session}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+                  onClick={() => {
+                    setFilters({ hideFilled: false, avoidFaculties: [], labFilter: 'all', onlySelected: false });
+                    setShowFilterModal(false);
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 rounded-lg transition-colors font-medium text-white"
                 >
-                  <Save className="w-4 h-4" />
-                  {savingRoutine ? 'Saving...' : 'Save Routine'}
+                  Reset Filters
                 </button>
-                <ExportRoutinePNG selectedCourses={enrichedSelectedCourses} routineRef={routineRef} />
                 <button
-                  onClick={() => setShowRoutineModal(false)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  onClick={() => setShowFilterModal(false)}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium text-white"
                 >
-                  <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  Apply
                 </button>
               </div>
-            </div>
-            
-            <div className="flex-1 overflow-auto" ref={routineRef}>
-              <RoutineTableGrid 
-                selectedCourses={enrichedSelectedCourses} 
-                onRemoveCourse={addToRoutine} 
-                showRemoveButtons={true}
-              />
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {/* Routine Modal — always rendered, uses isOpen for animated transitions */}
+      <RoutineView
+        title="My Routine"
+        courses={enrichedSelectedCourses}
+        isOpen={showRoutineModal}
+        onClose={() => setShowRoutineModal(false)}
+        onSave={saveRoutine}
+        isSaving={savingRoutine}
+        onRemoveCourse={addToRoutine}
+        showRemoveButtons={true}
+        headerExtras={
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Total Credits: <span className={`font-bold ${totalCredits > 25 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+              {totalCredits}/25
+            </span>
+          </p>
+        }
+      />
 
       {/* Faculty Hover Tooltip */}
-      {hoveredFaculty && (
-        <div 
-          className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-4 shadow-xl w-80 pointer-events-none"
-          style={{ 
-            left: `${Math.min(facultyTooltipPosition.x, window.innerWidth - 340)}px`, 
-            top: `${facultyTooltipPosition.y}px`
-          }}
-        >
-          <div className="flex gap-4">
-            {/* Faculty Image */}
-            <div className="shrink-0">
-              {hoveredFaculty.imgUrl && hoveredFaculty.imgUrl !== 'N/A' && !facultyImageError ? (
-                <img 
-                  src={hoveredFaculty.imgUrl} 
-                  alt={hoveredFaculty.facultyName || 'Faculty'} 
-                  className="w-16 h-16 rounded-full object-cover border-2 border-blue-500"
-                  onError={() => setFacultyImageError(true)}
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-blue-500 dark:bg-blue-400 flex items-center justify-center border-2 border-blue-600 dark:border-blue-500">
-                  <svg className="w-10 h-10 text-white dark:text-blue-100" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                  </svg>
+      {
+        hoveredFaculty && (
+          <div
+            className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-4 shadow-xl w-80 pointer-events-none"
+            style={{
+              left: `${Math.min(facultyTooltipPosition.x, window.innerWidth - 340)}px`,
+              top: `${facultyTooltipPosition.y}px`
+            }}
+          >
+            <div className="flex gap-4">
+              {/* Faculty Image */}
+              <div className="shrink-0">
+                {hoveredFaculty.imgUrl && hoveredFaculty.imgUrl !== 'N/A' && !facultyImageError ? (
+                  <img
+                    src={hoveredFaculty.imgUrl}
+                    alt={hoveredFaculty.facultyName || 'Faculty'}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-blue-500"
+                    onError={() => setFacultyImageError(true)}
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-blue-500 dark:bg-blue-400 flex items-center justify-center border-2 border-blue-600 dark:border-blue-500">
+                    <svg className="w-10 h-10 text-white dark:text-blue-100" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+
+              {/* Faculty Details */}
+              <div className="flex-1 space-y-1 text-sm">
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Initial:</span>{' '}
+                  <span className="font-medium text-blue-600 dark:text-blue-400">{hoveredFaculty.initial || 'Not Found'}</span>
                 </div>
-              )}
-            </div>
-            
-            {/* Faculty Details */}
-            <div className="flex-1 space-y-1 text-sm">
-              <div>
-                <span className="text-gray-500 dark:text-gray-400">Initial:</span>{' '}
-                <span className="font-medium text-blue-600 dark:text-blue-400">{hoveredFaculty.initial || 'Not Found'}</span>
-              </div>
-              <div>
-                <span className="text-gray-500 dark:text-gray-400">Name:</span>{' '}
-                <span className="font-medium text-gray-900 dark:text-white">{hoveredFaculty.facultyName || 'Not Found'}</span>
-              </div>
-              <div>
-                <span className="text-gray-500 dark:text-gray-400">Email:</span>{' '}
-                <span className="font-medium text-xs text-gray-700 dark:text-gray-300">{hoveredFaculty.facultyEmail || 'Not Found'}</span>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Name:</span>{' '}
+                  <span className="font-medium text-gray-900 dark:text-white">{hoveredFaculty.facultyName || 'Not Found'}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400">Email:</span>{' '}
+                  <span className="font-medium text-xs text-gray-700 dark:text-gray-300">{hoveredFaculty.facultyEmail || 'Not Found'}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {/* Mobile Course Bottom Sheet */}
+      <CourseBottomSheet
+        course={bottomSheetCourse}
+        onClose={() => setBottomSheetCourse(null)}
+      />
 
       {/* Floating Routine Button */}
       <button
         onClick={() => setShowRoutineModal(true)}
-        className="fixed bottom-6 right-6 px-5 py-3 bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg transition-all hover:scale-105 z-40 flex items-center gap-3"
+        className="fixed bottom-6 z-40 flex items-center gap-3 px-5 py-3 bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg transition-all hover:scale-105 left-1/2 -translate-x-1/2 md:left-auto md:right-6 md:translate-x-0"
       >
         <div className="relative">
           <Calendar className="w-5 h-5" />
@@ -971,9 +1389,14 @@ const PreRegistrationPage = () => {
             </span>
           )}
         </div>
-        <span className="text-sm font-medium">Click to View Your Routine</span>
+        <span className="text-sm font-medium">View Routine</span>
       </button>
-    </div>
+      <SignInPrompt
+        open={showSignInPrompt}
+        onOpenChange={setShowSignInPrompt}
+        featureDescription="Sign in with your BRACU G-Suite account to save routines, track your courses, and more."
+      />
+    </div >
   );
 };
 

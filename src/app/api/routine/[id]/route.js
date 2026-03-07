@@ -1,7 +1,7 @@
 // app/api/routine/[id]/route.js (App Router)
 import { auth } from "@/auth";
 import { db, eq } from "@/lib/db";
-import { savedRoutine } from "@/lib/db/schema";
+import { savedRoutine, userinfo } from "@/lib/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request, { params }) {
@@ -21,6 +21,8 @@ export async function GET(request, { params }) {
         routineId: savedRoutine.routineId,
         routineStr: savedRoutine.routineStr,
         email: savedRoutine.email,
+        createdAt: savedRoutine.createdAt,
+        semester: savedRoutine.semester,
       })
       .from(savedRoutine)
       .where(eq(savedRoutine.routineId, id));
@@ -34,12 +36,30 @@ export async function GET(request, { params }) {
 
     const routine = result[0];
 
+    // Fetch the owner's name from userinfo table
+    let ownerName = null;
+    try {
+      const userResult = await db
+        .select({ userName: userinfo.userName })
+        .from(userinfo)
+        .where(eq(userinfo.email, routine.email));
+      if (userResult.length > 0) {
+        // Get just the first name
+        ownerName = userResult[0].userName?.split(' ')[0] || null;
+      }
+    } catch (nameErr) {
+      console.error("Error fetching user name:", nameErr);
+    }
+
     return NextResponse.json({
       success: true,
       routine: {
         id: routine.routineId,
         routineStr: routine.routineStr,
-        email: "Anonymous"
+        email: "Anonymous",
+        createdAt: routine.createdAt,
+        semester: routine.semester,
+        ownerName: ownerName,
       }
     });
 
@@ -57,7 +77,7 @@ export async function DELETE(request, { params }) {
     // Get authenticated user session
     const session = await auth();
     console.log("Routine DELETE API accessed by:", session?.user?.email);
-    
+
     if (!session || !session.user?.email) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -65,7 +85,7 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -110,6 +130,82 @@ export async function DELETE(request, { params }) {
     console.error("Error deleting routine:", error);
     return NextResponse.json(
       { error: "Failed to delete routine" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request, { params }) {
+  try {
+    const session = await auth();
+    console.log("Routine PATCH API accessed by:", session?.user?.email);
+
+    if (!session || !session.user?.email) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Routine ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const { routineName } = body;
+
+    // Validate routine name length
+    if (routineName && routineName.length > 40) {
+      return NextResponse.json(
+        { error: "Routine name must be 40 characters or less" },
+        { status: 400 }
+      );
+    }
+
+    // Check ownership
+    const existingRoutine = await db
+      .select({ email: savedRoutine.email })
+      .from(savedRoutine)
+      .where(eq(savedRoutine.routineId, id));
+
+    if (existingRoutine.length === 0) {
+      return NextResponse.json(
+        { error: "Routine not found" },
+        { status: 404 }
+      );
+    }
+
+    if (existingRoutine[0].email !== session.user.email) {
+      return NextResponse.json(
+        { error: "Access denied" },
+        { status: 403 }
+      );
+    }
+
+    // Update routine
+    const updatedRoutine = await db
+      .update(savedRoutine)
+      .set({ routineName: routineName })
+      .where(eq(savedRoutine.routineId, id))
+      .returning({
+        routineId: savedRoutine.routineId,
+        routineName: savedRoutine.routineName
+      });
+
+    return NextResponse.json({
+      success: true,
+      routine: updatedRoutine[0]
+    });
+
+  } catch (error) {
+    console.error("Error updating routine:", error);
+    return NextResponse.json(
+      { error: "Failed to update routine" },
       { status: 500 }
     );
   }

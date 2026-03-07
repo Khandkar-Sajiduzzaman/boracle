@@ -1,5 +1,7 @@
 "use client"
 
+
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,8 +38,8 @@ export default function ProfileDropdown() {
           )}
         </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent 
-        align="end" 
+      <DropdownMenuContent
+        align="end"
         className="w-56 p-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg"
       >
         {/* User Info Header */}
@@ -50,24 +52,25 @@ export default function ProfileDropdown() {
           </p>
         </div>
         <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-800" />
-        
+
         <Link href="/dashboard">
           <DropdownMenuItem className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 focus:bg-blue-50 dark:focus:bg-blue-900/30 transition-colors">
             <LayoutDashboard className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Dashboard</span>
           </DropdownMenuItem>
         </Link>
-        
+
         {/* <Link href="/account-settings">
           <DropdownMenuItem className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 focus:bg-blue-50 dark:focus:bg-blue-900/30 transition-colors">
             <Settings className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Settings</span>
           </DropdownMenuItem>
         </Link> */}
-        
+
+
         <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-800 my-1" />
-        
-        <DropdownMenuItem 
+
+        <DropdownMenuItem
           onClick={() => signOut({ callbackUrl: '/' })}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/30 focus:bg-red-50 dark:focus:bg-red-900/30 transition-colors"
         >

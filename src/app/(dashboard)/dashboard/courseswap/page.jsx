@@ -1,20 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeftRight, Loader2, User } from "lucide-react";
+import { ArrowLeftRight, Loader2, Plus, User } from "lucide-react";
 import { useSession } from 'next-auth/react';
 import CreateSwapModal from '@/components/course-swap/CreateSwapModal';
 import SwapCard from '@/components/course-swap/SwapCard';
 import SwapFilter from '@/components/course-swap/SwapFilter';
 import { toast } from 'sonner';
 import globalInfo from '@/constants/globalInfo';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useIsMobile } from '@/hooks/use-mobile';
+import CourseBottomSheet from '@/components/ui/CourseBottomSheet';
+import { useFaculty } from '@/app/contexts/FacultyContext';
+import SwapNotifications from '@/components/course-swap/SwapNotifications';
+import SignInPrompt from '@/components/shared/SignInPrompt';
 
 const BACKUP_INDEX_URL = 'https://connect-cdn.itzmrz.xyz/connect_backup.json';
 const CURRENT_COURSES_URL = 'https://usis-cdn.eniamza.com/connect.json';
 
 const CourseSwapPage = () => {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [currentCourses, setCurrentCourses] = useState([]);
   const [backupIndex, setBackupIndex] = useState(null);
   const [semesterCoursesCache, setSemesterCoursesCache] = useState({});
@@ -23,6 +29,10 @@ const CourseSwapPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedFilters, setSelectedFilters] = useState([]);
   const [showMySwapsOnly, setShowMySwapsOnly] = useState(false);
+  const { enrichCoursesWithFaculty } = useFaculty();
+  const isMobile = useIsMobile();
+  const [bottomSheetCourse, setBottomSheetCourse] = useState(null);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
   // Current semester from global config
   const currentSemester = globalInfo.semester;
@@ -47,15 +57,19 @@ const CourseSwapPage = () => {
     return normalizeSemester(currentSemester);
   }, [currentSemester]);
 
+
+
   // Fetch backup index
   useEffect(() => {
     const fetchBackupIndex = async () => {
       try {
-        const response = await fetch(BACKUP_INDEX_URL);
-        const data = await response.json();
-        setBackupIndex(data);
+        const response = await fetch(BACKUP_INDEX_URL).catch(() => null);
+        if (response && response.ok) {
+          const data = await response.json();
+          setBackupIndex(data);
+        }
       } catch (error) {
-        console.error('Error fetching backup index:', error);
+        // Silently swallow fetch errors so Next.js doesn't crash the overlay
       }
     };
     fetchBackupIndex();
@@ -80,19 +94,21 @@ const CourseSwapPage = () => {
 
   // Fetch swaps
   useEffect(() => {
-    fetchSwaps();
-  }, []);
+    if (sessionStatus !== 'loading') {
+      fetchSwaps();
+    }
+  }, [sessionStatus]);
 
   // Fetch backup courses for a specific semester
   const fetchBackupCourses = async (semester) => {
     const normalizedSem = normalizeSemester(semester);
     console.log(`Fetching backup for semester: ${semester} (normalized: ${normalizedSem})`);
-    
+
     if (!normalizedSem || !backupIndex?.backups) {
       console.log('No normalized semester or backup index');
       return null;
     }
-    
+
     // Check cache first
     if (semesterCoursesCache[normalizedSem]) {
       console.log(`Using cached courses for ${normalizedSem}`);
@@ -103,9 +119,9 @@ const CourseSwapPage = () => {
     const backups = backupIndex.backups
       .filter(b => normalizeSemester(b.semester) === normalizedSem)
       .sort((a, b) => new Date(b.backupTime) - new Date(a.backupTime));
-    
+
     console.log(`Found ${backups.length} backups for ${normalizedSem}:`, backups.map(b => b.cdnLink));
-    
+
     if (backups.length === 0) return null;
 
     try {
@@ -113,15 +129,15 @@ const CourseSwapPage = () => {
       const response = await fetch(backups[0].cdnLink);
       const data = await response.json();
       const sections = data.sections || [];
-      
+
       console.log(`Loaded ${sections.length} sections for ${normalizedSem}`);
-      
+
       // Cache the result
       setSemesterCoursesCache(prev => ({
         ...prev,
         [normalizedSem]: sections
       }));
-      
+
       return sections;
     } catch (error) {
       console.error(`Error fetching backup for ${normalizedSem}:`, error);
@@ -132,20 +148,24 @@ const CourseSwapPage = () => {
   // Get courses for a specific swap (current or backup based on semester)
   const getCoursesForSwap = (swap) => {
     const swapSemester = normalizeSemester(swap.semester);
-    
+
+    let courses;
     // If no semester info or matches current semester, use current courses
     if (!swapSemester || swapSemester === normalizedCurrentSemester) {
-      return currentCourses;
+      courses = currentCourses;
+    } else {
+      // Use cached backup courses if available
+      const cachedCourses = semesterCoursesCache[swapSemester];
+      if (cachedCourses && cachedCourses.length > 0) {
+        courses = cachedCourses;
+      } else {
+        // Fallback to current courses while loading
+        courses = currentCourses;
+      }
     }
-    
-    // Use cached backup courses if available
-    const cachedCourses = semesterCoursesCache[swapSemester];
-    if (cachedCourses && cachedCourses.length > 0) {
-      return cachedCourses;
-    }
-    
-    // Fallback to current courses while loading
-    return currentCourses;
+
+    // Enrich courses with faculty details
+    return enrichCoursesWithFaculty(courses);
   };
 
   // Preload backup courses for swaps from previous semesters
@@ -154,7 +174,7 @@ const CourseSwapPage = () => {
 
     const loadBackupCourses = async () => {
       const semestersToLoad = new Set();
-      
+
       swaps.forEach(swap => {
         const swapSemester = normalizeSemester(swap.semester);
         if (swapSemester && swapSemester !== normalizedCurrentSemester && !semesterCoursesCache[swapSemester]) {
@@ -179,7 +199,8 @@ const CourseSwapPage = () => {
   const fetchSwaps = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/swap');
+      const endpoint = session?.user?.email ? '/api/swap' : '/api/swap/public';
+      const response = await fetch(endpoint);
       if (response.ok) {
         const data = await response.json();
         setSwaps(data || []);
@@ -206,18 +227,29 @@ const CourseSwapPage = () => {
         }
       });
     });
-    return allCourses;
-  }, [currentCourses, semesterCoursesCache]);
+    // Enrich with faculty details
+    return enrichCoursesWithFaculty(allCourses);
+  }, [currentCourses, semesterCoursesCache, enrichCoursesWithFaculty]);
 
   const applyFilters = () => {
     let filtered = [...swaps];
 
     // Apply "My Swaps Only" filter first
     if (showMySwapsOnly && session?.user?.email) {
-      filtered = filtered.filter(swap => {
-        const isMySwap = swap.uEmail?.toLowerCase() === session.user.email?.toLowerCase();
-        return isMySwap;
-      });
+      filtered = filtered.filter(swap => swap.isOwner);
+    } else {
+      // When "My Swaps Only" is OFF, hide inactive (isDone) swaps
+      filtered = filtered.filter(swap => !swap.isDone);
+
+      // Sort user swaps first, then others
+      if (session?.user?.email) {
+        filtered.sort((a, b) => {
+          const isAUser = !!a.isOwner;
+          const isBUser = !!b.isOwner;
+          if (isAUser === isBUser) return 0;
+          return isAUser ? -1 : 1;
+        });
+      }
     }
 
     // Apply course filters
@@ -227,11 +259,17 @@ const CourseSwapPage = () => {
           swap.getSectionId,
           ...(swap.askingSections || [])
         ];
-        return relatedSections.some(sectionId => 
+        return relatedSections.some(sectionId =>
           selectedFilters.includes(sectionId)
         );
       });
     }
+
+    // Sort: Active swaps first, then inactive swaps
+    filtered.sort((a, b) => {
+      if (a.isDone === b.isDone) return 0;
+      return a.isDone ? 1 : -1;
+    });
 
     setFilteredSwaps(filtered);
   };
@@ -245,10 +283,10 @@ const CourseSwapPage = () => {
       const response = await fetch(`/api/swap/${swapId}`, {
         method: 'DELETE',
       });
-      
+
       if (response.ok) {
         toast.success('Swap deleted successfully');
-        fetchSwaps();
+        setSwaps(prev => prev.filter(s => s.swapId !== swapId));
       } else {
         toast.error('Failed to delete swap');
       }
@@ -263,10 +301,10 @@ const CourseSwapPage = () => {
       const response = await fetch(`/api/swap/${swapId}`, {
         method: 'PATCH',
       });
-      
+
       if (response.ok) {
         toast.success('Swap marked as complete');
-        fetchSwaps();
+        setSwaps(prev => prev.map(s => s.swapId === swapId ? { ...s, isDone: true } : s));
       } else {
         toast.error('Failed to mark swap as complete');
       }
@@ -279,53 +317,109 @@ const CourseSwapPage = () => {
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-white">
-              Swap Arena
-            </h1>
-          </div>
-          
-          <div className="flex gap-3 items-center">
+        <div className="flex items-center justify-between mb-8 gap-3">
+          <div className="flex items-center">
             {session?.user?.email && (
-              <label className="flex items-center gap-3 cursor-pointer">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">My Swaps Only</span>
+              <label className="flex items-center gap-2 cursor-pointer bg-blue-50 dark:bg-gray-800 border border-blue-200 dark:border-gray-700 px-3 py-2 rounded-lg">
+                <span className="text-xs md:text-sm font-medium text-blue-700 dark:text-gray-300 whitespace-nowrap">My Swaps</span>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={showMySwapsOnly}
                   onClick={handleMySwapsToggle}
-                  className={`relative inline-flex h-[24px] w-[44px] items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-opacity-75 ${
-                    showMySwapsOnly ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
+                  className={`relative inline-flex h-[22px] w-[40px] shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-opacity-75 ${showMySwapsOnly ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
                 >
                   <span className="sr-only">Toggle my swaps only</span>
                   <span
-                    className={`${
-                      showMySwapsOnly ? 'translate-x-[22px]' : 'translate-x-[2px]'
-                    } pointer-events-none inline-block h-[20px] w-[20px] transform rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ease-in-out`}
+                    className={`${showMySwapsOnly ? 'translate-x-[20px]' : 'translate-x-[2px]'
+                      } pointer-events-none inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow-lg ring-0 transition-transform duration-200 ease-in-out`}
                   />
                 </button>
               </label>
             )}
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-3">
+            {session?.user?.email && (
+              <SwapNotifications
+                isMobile={isMobile}
+                swaps={swaps}
+                courses={allAvailableCourses}
+              />
+            )}
             {swaps.length > 0 && (
-              <SwapFilter 
+              <SwapFilter
                 courses={allAvailableCourses}
                 swaps={swaps}
                 onFilterChange={handleFilterChange}
+                isMobile={isMobile}
               />
             )}
-            <CreateSwapModal 
-              courses={currentCourses} 
-              onSwapCreated={fetchSwaps}
-            />
+            {session?.user?.email ? (
+              <CreateSwapModal
+                courses={currentCourses}
+                onSwapCreated={fetchSwaps}
+                isMobile={isMobile}
+              />
+            ) : (
+              <div
+                className="flex items-center justify-center gap-2 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 rounded-lg font-medium shadow-sm transition-all hover:opacity-90 cursor-pointer px-3 py-2.5 md:px-4 md:py-2"
+                title="Create Swap"
+                onClick={() => setShowSignInPrompt(true)}
+              >
+                <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="hidden md:inline">Create Swap</span>
+              </div>
+            )}
           </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-16">
-            <Loader2 className="h-12 w-12 animate-spin mx-auto text-white" />
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading swaps...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                {/* Status badge */}
+                <div className="px-3 md:px-6 pt-5 pb-4">
+                  <div className="flex justify-end mb-3">
+                    <Skeleton className="h-5 w-14 rounded-full" />
+                  </div>
+                  {/* Offering section */}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Skeleton className="w-4 h-4" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                        <Skeleton className="h-5 w-3/4 mb-2" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </div>
+                    {/* Looking For section */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Skeleton className="w-4 h-4" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Skeleton className="h-7 w-36 rounded-full" />
+                          <Skeleton className="h-7 w-28 rounded-full" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* Footer */}
+                <div className="px-3 md:px-6 py-3 border-t bg-gray-200/60 dark:bg-gray-800/50">
+                  <div className="flex items-center justify-between py-2">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-8 w-28 rounded-lg" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredSwaps.length === 0 ? (
           <Card className="bg-white/50 dark:bg-gray-900/50 backdrop-blur border-0 shadow-xl">
@@ -334,10 +428,10 @@ const CourseSwapPage = () => {
                 <ArrowLeftRight className="h-12 w-12 text-purple-600 dark:text-purple-400" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                {showMySwapsOnly 
-                  ? 'You have no active swap requests' 
-                  : selectedFilters.length > 0 
-                    ? 'No matching swaps found' 
+                {showMySwapsOnly
+                  ? 'You have no active swap requests'
+                  : selectedFilters.length > 0
+                    ? 'No matching swaps found'
                     : 'No swap requests available'}
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
@@ -350,19 +444,32 @@ const CourseSwapPage = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {filteredSwaps.map((swap) => (
-              <SwapCard 
-                key={swap.swapId} 
-                swap={{...swap, email: swap.uEmail}} 
+              <SwapCard
+                key={swap.swapId}
+                swap={{ ...swap, email: swap.uEmail }}
                 courses={getCoursesForSwap(swap)}
                 onDelete={handleDeleteSwap}
                 onMarkComplete={handleMarkComplete}
+                onCourseClick={(course) => isMobile && setBottomSheetCourse(course)}
+                isMobile={isMobile}
               />
             ))}
           </div>
         )}
       </div>
+      <CourseBottomSheet
+        course={bottomSheetCourse}
+        courseTitle={bottomSheetCourse ? `${bottomSheetCourse.courseCode}-${bottomSheetCourse.sectionName}` : ''}
+        extraFields={bottomSheetCourse ? [{ label: 'Faculty', value: bottomSheetCourse.faculties || 'TBA' }] : []}
+        onClose={() => setBottomSheetCourse(null)}
+      />
+      <SignInPrompt
+        open={showSignInPrompt}
+        onOpenChange={setShowSignInPrompt}
+        featureDescription="Sign in with your BRACU G-Suite account to create swap requests, manage your swaps, and more."
+      />
     </div>
   );
 };
