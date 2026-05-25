@@ -12,6 +12,12 @@ const navbarItems = [
         enabled: true
     },
     {
+        title: 'Gradesheet',
+        href: '/gradesheet',
+        description: 'Upload your grade sheet PDF to analyze your CGPA and plan retakes',
+        enabled: true
+    },
+    {
         title: 'Changelog',
         href: '/changelog',
         description: 'Track all updates and changes to the Boracle platform',
