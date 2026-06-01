@@ -1,6 +1,6 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
-import { Loader2, Save } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getPdfjs, extractPageText, parseGradesheet, formatSemesterName } from "@/components/ui/gradesheet/gradesheet-utils";
 import UploadBar from "@/components/ui/gradesheet/UploadBar";
@@ -297,7 +297,7 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 pb-20">
       <div className="max-w-6xl mx-auto px-4 py-10 md:py-16">
-        <UploadBar courses={courses} lastParsedSemester={lastParsedSemester} onFileUpload={handleFileUpload} />
+        <UploadBar courses={courses} lastParsedSemester={lastParsedSemester} onFileUpload={handleFileUpload} allowSave={allowSave} saving={saving} onSave={saveGradesheet} onDelete={deleteSavedGradesheet} />
 
         {courses.length > 0 && chartData.length > 0 && !loading && (
           <AcademicTrajectoryChart chartData={chartData} targetCgpaNumber={targetCgpaNumber} />
@@ -337,16 +337,6 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
                 gpaTolerance={gpaTolerance}
               />
 
-              {allowSave && (
-                <div className="flex flex-row gap-3">
-                  <button onClick={deleteSavedGradesheet} disabled={saving} className="flex-1 px-4 py-3 rounded-xl border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/20 text-sm font-semibold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50" id="del-sheet-btn">
-                    Delete
-                  </button>
-                  <button onClick={saveGradesheet} disabled={saving || !courses.length} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:hover:shadow-md" id="save-btn">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {saving ? "Saving..." : "Save"}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}
