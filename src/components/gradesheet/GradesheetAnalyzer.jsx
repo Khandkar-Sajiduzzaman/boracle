@@ -389,7 +389,7 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
         <SignInPrompt 
           open={showSignInPrompt} 
           onOpenChange={setShowSignInPrompt} 
-          featureDescription="save or delete your gradesheet"
+          featureDescription="Save, delete and customize your gradesheet with useful insights and tools!"
         />
       </div>
     </div>
