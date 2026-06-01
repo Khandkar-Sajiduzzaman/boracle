@@ -65,7 +65,7 @@ export default async function Image() {
                     background: '#1f2937',
                     padding: '8px 24px',
                     borderRadius: '9999px',
-                    color: '#9ca3af',
+                    color: 'white',
                     fontSize: '20px',
                     fontWeight: 700,
                     letterSpacing: '0.1em',
