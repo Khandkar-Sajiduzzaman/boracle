@@ -1,8 +1,10 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { getPdfjs, extractPageText, parseGradesheet, formatSemesterName } from "@/components/ui/gradesheet/gradesheet-utils";
+import SignInPrompt from "@/components/shared/SignInPrompt";
 import UploadBar from "@/components/ui/gradesheet/UploadBar";
 import AcademicTrajectoryChart from "@/components/ui/gradesheet/AcademicTrajectoryChart";
 import CourseTable from "@/components/ui/gradesheet/CourseTable";
@@ -10,15 +12,19 @@ import MetricsCard from "@/components/ui/gradesheet/MetricsCard";
 import GraduationPlanner from "@/components/ui/gradesheet/GraduationPlanner";
 
 export default function GradesheetAnalyzer({ allowSave = false, savedData = null }) {
+  const { data: session } = useSession();
   const [courses, setCourses] = useState([]);
   const [originalCourses, setOriginalCourses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
   const [targetDegreeCredits, setTargetDegreeCredits] = useState("");
   const [targetCgpaValue, setTargetCgpaValue] = useState("");
   const [lastParsedSemester, setLastParsedSemester] = useState(null);
+
+  const [lastSavedState, setLastSavedState] = useState(JSON.stringify({ courses: [], targetDegreeCredits: "", targetCgpa: "" }));
 
   useEffect(() => {
     if (savedData && !dataLoaded) {
@@ -29,6 +35,12 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
       if (savedData.targetDegreeCredits) setTargetDegreeCredits(savedData.targetDegreeCredits);
       if (savedData.targetCgpa) setTargetCgpaValue(savedData.targetCgpa);
       if (savedData.lastParsedSemester) setLastParsedSemester(savedData.lastParsedSemester);
+      
+      setLastSavedState(JSON.stringify({
+        courses: savedData.courses || [],
+        targetDegreeCredits: savedData.targetDegreeCredits || "",
+        targetCgpa: savedData.targetCgpa || ""
+      }));
       setDataLoaded(true);
     }
   }, [savedData, dataLoaded]);
@@ -37,6 +49,19 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
     if (type === "error") toast.error(msg);
     else toast.success(msg);
   }, []);
+
+  const currentStateString = JSON.stringify({ courses, targetDegreeCredits, targetCgpa: targetCgpaValue });
+  const hasUnsavedChanges = courses.length > 0 && lastSavedState !== currentStateString;
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const handleFileUpload = useCallback(async (file) => {
     if (!file || file.type !== "application/pdf") {
@@ -147,6 +172,10 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
 
   const saveGradesheet = useCallback(async () => {
     if (!courses.length) return;
+    if (!session?.user) {
+      setShowSignInPrompt(true);
+      return;
+    }
     setSaving(true);
     try {
       const currentQualityPoints = originalCourses.reduce((sum, course) => sum + course.qualityPoints, 0);
@@ -163,15 +192,20 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
       });
 
       if (!response.ok) throw new Error();
+      setLastSavedState(currentStateString);
       showToastMessage("Gradesheet saved!");
     } catch {
       showToastMessage("Failed to save.", "error");
     } finally {
       setSaving(false);
     }
-  }, [courses, originalCourses, lastParsedSemester, targetDegreeCredits, targetCgpaValue, showToastMessage]);
+  }, [courses, originalCourses, lastParsedSemester, targetDegreeCredits, targetCgpaValue, showToastMessage, session]);
 
   const deleteSavedGradesheet = useCallback(async () => {
+    if (!session?.user) {
+      setShowSignInPrompt(true);
+      return;
+    }
     setSaving(true);
     try {
       const response = await fetch("/api/gradesheet", { method: "DELETE" });
@@ -181,13 +215,14 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
       setLastParsedSemester(null);
       setTargetDegreeCredits("");
       setTargetCgpaValue("");
+      setLastSavedState(JSON.stringify({ courses: [], targetDegreeCredits: "", targetCgpa: "" }));
       showToastMessage("Gradesheet deleted.");
     } catch {
       showToastMessage("Failed to delete.", "error");
     } finally {
       setSaving(false);
     }
-  }, [showToastMessage]);
+  }, [showToastMessage, session]);
 
   // Calculations
   const totalCredits = courses.reduce((sum, course) => sum + course.credits, 0);
@@ -297,7 +332,7 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 pb-20">
       <div className="max-w-6xl mx-auto px-4 py-10 md:py-16">
-        <UploadBar courses={courses} lastParsedSemester={lastParsedSemester} onFileUpload={handleFileUpload} allowSave={allowSave} saving={saving} onSave={saveGradesheet} onDelete={deleteSavedGradesheet} />
+        <UploadBar courses={courses} lastParsedSemester={lastParsedSemester} onFileUpload={handleFileUpload} allowSave={allowSave} saving={saving} onSave={saveGradesheet} onDelete={deleteSavedGradesheet} hasUnsavedChanges={hasUnsavedChanges} />
 
         {courses.length > 0 && chartData.length > 0 && !loading && (
           <AcademicTrajectoryChart chartData={chartData} targetCgpaNumber={targetCgpaNumber} />
@@ -350,6 +385,12 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
             </p>
           </div>
         )}
+
+        <SignInPrompt 
+          open={showSignInPrompt} 
+          onOpenChange={setShowSignInPrompt} 
+          featureDescription="save or delete your gradesheet"
+        />
       </div>
     </div>
   );
