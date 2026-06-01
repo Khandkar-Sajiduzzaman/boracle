@@ -1,8 +1,8 @@
 import { useRef } from "react";
-import { Upload, CheckCircle2, Save, Loader2, Trash2 } from "lucide-react";
+import { Upload, CheckCircle2, Save, Loader2, Trash2, FileUp } from "lucide-react";
 import { formatSemesterName } from "./gradesheet-utils";
 
-export default function UploadBar({ courses, lastParsedSemester, onFileUpload, allowSave, saving, onSave, onDelete }) {
+export default function UploadBar({ courses, lastParsedSemester, onFileUpload, allowSave, saving, onSave, onDelete, hasUnsavedChanges }) {
   const fileInputRef = useRef(null);
 
   const handleChange = (e) => {
@@ -11,7 +11,7 @@ export default function UploadBar({ courses, lastParsedSemester, onFileUpload, a
     e.target.value = "";
   };
 
-  const btnBase = "px-4 py-2 text-sm font-semibold rounded-lg border transition-colors shadow-sm shrink-0 disabled:opacity-50";
+  const btnBase = "inline-flex items-center justify-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-lg border transition-colors shadow-sm shrink-0 disabled:opacity-50";
   const btnOutline = `${btnBase} border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30`;
   const btnDelete = `${btnBase} border-red-200 dark:border-red-800 bg-white dark:bg-gray-900 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30`;
   const btnSave = `${btnBase} border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-600 text-white hover:bg-blue-700 dark:hover:bg-blue-700`;
@@ -32,19 +32,19 @@ export default function UploadBar({ courses, lastParsedSemester, onFileUpload, a
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => fileInputRef.current?.click()} className={btnOutline}>
-            Reupload PDF
+            <FileUp className="w-3.5 h-3.5" /> <span>Reupload PDF</span>
           </button>
           {allowSave && (
             <>
               <button onClick={onDelete} disabled={saving} className={btnDelete} id="del-sheet-btn">
-                <span className="inline-flex items-center gap-1.5"><Trash2 className="w-3.5 h-3.5" /> Delete</span>
+                <Trash2 className="w-3.5 h-3.5" /> <span>Delete</span>
               </button>
-              <button onClick={onSave} disabled={saving || !courses.length} className={btnSave} id="save-btn">
-                <span className="inline-flex items-center gap-1.5">
+              {hasUnsavedChanges && (
+                <button onClick={onSave} disabled={saving || !courses.length} className={btnSave} id="save-btn">
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  {saving ? "Saving..." : "Save"}
-                </span>
-              </button>
+                  <span>{saving ? "Saving..." : "Save Pending Changes"}</span>
+                </button>
+              )}
             </>
           )}
         </div>
