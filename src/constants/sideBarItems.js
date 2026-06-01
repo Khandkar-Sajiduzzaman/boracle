@@ -1,4 +1,4 @@
-import { Home, Sigma, Star, ChevronsLeftRightEllipsis, Hammer, Cable, BookOpen, Users, ArrowRightLeft, FileText } from "lucide-react"
+import { Home, Sigma, Star, ChevronsLeftRightEllipsis, Hammer, Cable, BookOpen, Users, ArrowRightLeft, FileText, LineChart } from "lucide-react"
 
 const sidebarGroups = [
     {
@@ -42,6 +42,13 @@ const sidebarGroups = [
                 href: '/dashboard/merge-routines',
                 description: 'Merge multiple course routines into one optimized schedule. Perfect for group studies and project collaborations!',
                 icon: Cable,
+                enabled: true
+            },
+            {
+                title: 'Gradesheet Analyzer',
+                href: '/dashboard/gradesheet',
+                description: 'Upload your grade sheet PDF to analyze your CGPA and plan retakes',
+                icon: LineChart,
                 enabled: true
             }
         ]
