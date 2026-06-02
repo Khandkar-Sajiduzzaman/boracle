@@ -35,9 +35,11 @@ const featureList = [
     },
     {
         index: 5,
-        title: "Faculty Review",
-        description: "Rate your faculty and provide feedback. Scrolling through useless reviews is a thing of the past!",
-        footer: "🟡 Coming Soon"
+        title: "Gradesheet Analyzer",
+        description: "Calculate Retakes, See Grade Tolerances and Beautiful Charts!",
+        footer: "🟢 Live",
+        href: "/gradesheet",
+        dashboardHref: "/dashboard/gradesheet"
     },
 ]
 
