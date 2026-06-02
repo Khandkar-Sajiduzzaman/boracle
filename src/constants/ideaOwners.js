@@ -16,5 +16,11 @@ export const ideaOwners = [
         githubLink: "https://github.com/eniamza",
         description: "One day when everyone's USIS (Older Connect) was locked, by some miraculous reason, Eniamza's dashboard wasn't. So he decided to build a service to relay the seat status of every section of every course to the public. And that's how USIS Relay / USIS2Global was born. Afterwards the Connect CDN became a full suite of tools to keep uptodate with the newer patches of Connect SLMS and committed to deliver the most reliable course data to the community",
         originalProjectLink: "https://connect.eniamza.com/" // Optional   
+    },
+    {
+        featureTitle: "Should I Retake (Gradesheet Analyzer)",
+        githubLink: "https://github.com/badhon495",
+        description: "A modern, client-side web application built to help BRAC University students take control of their academic journey. Built with JavaScript, pdf.js, HTML, and CSS, it runs entirely in the browser.",
+        originalProjectLink: "https://github.com/badhon495/should-i-retake" // Optional   
     }
 ];
