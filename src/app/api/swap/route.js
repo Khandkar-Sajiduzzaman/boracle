@@ -1,6 +1,6 @@
 // app/api/swap/route.js (App Router)
 import { auth } from "@/auth";
-import { db, eq, getCurrentEpoch } from "@/lib/db";
+import { db, eq, desc, getCurrentEpoch } from "@/lib/db";
 import { courseSwap, askSectionId } from "@/lib/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 import globalInfo from "@/constants/globalInfo";
@@ -22,7 +22,8 @@ export async function GET(request) {
     // Fetch all swaps and all asking sections in just 2 queries
     const swapRequest = await db
       .select()
-      .from(courseSwap);
+      .from(courseSwap)
+      .orderBy(desc(courseSwap.createdAt));
 
     const allAskingSections = await db
       .select({
