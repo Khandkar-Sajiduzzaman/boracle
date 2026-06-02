@@ -26,3 +26,4 @@ export { moderatesReview } from './moderatesReview.js';
 export { moderatesCourseMaterials } from './moderatesCourseMaterials.js';
 export { services } from './services.js';
 export { swapRequest } from './swapRequest.js';
+export { gradesheet } from './gradesheet.js';

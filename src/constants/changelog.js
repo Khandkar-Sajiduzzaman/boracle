@@ -1,5 +1,26 @@
 export const changelog = [
     {
+        version: "1.28.0",
+        date: "2026-06-02",
+        changes: {
+            new: [
+                "Gradesheet Analyzer: A powerful new tool with automated parsing, trajectory charting, and a graduation planner",
+                "Dynamic Opengraph images for beautiful preview cards when sharing links on social media",
+                "Added Badhon to the contributors page"
+            ],
+            improved: [
+                "Added a dynamic 'Save Changes' modal for unsaved progress",
+                "Auto-redirection to the previous page after a successful login",
+                "Streamlined UI by removing redundant headers and over-branding",
+                "Moved action buttons (save/upload) to the status bar for better accessibility"
+            ],
+            fixed: [
+                "Resolved button styling UI bugs",
+                "Fixed the sign-in message prompt"
+            ]
+        }
+    },
+    {
         version: "1.27.0",
         date: "2026-03-08",
         changes: {

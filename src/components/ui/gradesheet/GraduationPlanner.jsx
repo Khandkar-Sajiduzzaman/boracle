@@ -1,0 +1,125 @@
+export default function GraduationPlanner({
+  targetDegreeCredits, setTargetDegreeCredits,
+  targetCgpaValue, setTargetCgpaValue,
+  degreeCreditsNumber, targetCgpaNumber,
+  remainingCredits, maxReachableCgpa,
+  requiredAverageGpa, isTargetImpossible,
+  gpaTolerance,
+}) {
+  return (
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-blue-50/50 dark:bg-blue-900/10">
+        <h3 className="text-sm font-bold text-blue-900 dark:text-blue-100 uppercase tracking-wider flex items-center gap-2">
+          Graduation Planner
+        </h3>
+        <p className="text-[11px] text-gray-500 dark:text-blue-200/60 mt-1">Project the GPA you need to hit your goal</p>
+      </div>
+      <div className="p-5">
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div>
+            <label className="block text-gray-500 dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">Total Degree Credits</label>
+            <input 
+              type="number" 
+              className="w-full bg-blue-50/50 dark:bg-blue-900/20 border border-blue-200/60 dark:border-blue-800/60 rounded-lg text-gray-900 dark:text-gray-100 text-sm px-3 py-2 outline-none font-mono focus:border-blue-500 transition-colors" 
+              placeholder="e.g. 130" 
+              value={targetDegreeCredits}
+              onChange={(e) => setTargetDegreeCredits(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-gray-500 dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">Target CGPA</label>
+            <input 
+              type="number" 
+              className="w-full bg-blue-50/50 dark:bg-blue-900/20 border border-blue-200/60 dark:border-blue-800/60 rounded-lg text-gray-900 dark:text-gray-100 text-sm px-3 py-2 outline-none font-mono focus:border-blue-500 transition-colors" 
+              placeholder="e.g. 3.50" 
+              value={targetCgpaValue}
+              onChange={(e) => setTargetCgpaValue(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {degreeCreditsNumber > 0 && (
+          <div className="grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-3.5">
+              <div className="text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wider mb-1.5 font-bold">Max Reachable</div>
+              <div className="text-gray-900 dark:text-gray-100 text-xl font-bold font-mono">{remainingCredits > 0 ? maxReachableCgpa.toFixed(2) : "—"}</div>
+              <div className="text-gray-400 dark:text-gray-500 text-[10px] mt-1 leading-snug">{remainingCredits > 0 ? `4.0 in remaining ${remainingCredits} cr.` : "No remaining credits"}</div>
+            </div>
+            
+            <div className={`rounded-xl p-3.5 border transition-colors ${
+              targetCgpaNumber > 0 && remainingCredits > 0 
+                ? (isTargetImpossible 
+                    ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50" 
+                    : requiredAverageGpa <= 0 
+                      ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50" 
+                      : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/50")
+                : "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50"
+            }`}>
+              <div className={`text-[10px] uppercase tracking-wider mb-1.5 font-bold ${
+                targetCgpaNumber > 0 && remainingCredits > 0 
+                  ? (isTargetImpossible ? "text-red-600 dark:text-red-400" : requiredAverageGpa <= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-blue-600 dark:text-blue-400")
+                  : "text-gray-500 dark:text-gray-400"
+              }`}>Required Avg. GPA</div>
+              
+              <div className={`text-xl font-bold font-mono ${
+                targetCgpaNumber > 0 && remainingCredits > 0 
+                  ? (isTargetImpossible ? "text-red-700 dark:text-red-300" : requiredAverageGpa <= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-blue-700 dark:text-blue-300")
+                  : "text-gray-900 dark:text-gray-100"
+              }`}>
+                {targetCgpaNumber > 0 ? (remainingCredits > 0 ? (isTargetImpossible ? "N/A" : requiredAverageGpa <= 0 ? "✓" : requiredAverageGpa.toFixed(2)) : "—") : "—"}
+              </div>
+              
+              <div className={`text-[10px] mt-1 leading-snug ${
+                targetCgpaNumber > 0 && remainingCredits > 0 
+                  ? (isTargetImpossible ? "text-red-500/80 dark:text-red-400/80" : requiredAverageGpa <= 0 ? "text-emerald-500/80 dark:text-emerald-400/80" : "text-blue-500/80 dark:text-blue-400/80")
+                  : "text-gray-400 dark:text-gray-500"
+              }`}>
+                {targetCgpaNumber > 0 ? (remainingCredits > 0 ? (isTargetImpossible ? "Requires GPA > 4.0" : requiredAverageGpa <= 0 ? "Already guaranteed!" : `To reach target ${targetCgpaNumber.toFixed(2)}`) : "No credits left") : "To reach target"}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* GPA Tolerance Breakdown */}
+        <div className="mt-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Grade Tolerance</div>
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700/50"></div>
+          </div>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-3 leading-relaxed">
+            {gpaTolerance.length > 0
+              ? <>Max non-4.0 courses you can afford (assuming 3-credit courses) and still reach <span className="font-bold text-blue-600 dark:text-blue-400">{targetCgpaNumber.toFixed(2)}</span> CGPA</>
+              : "Fill up Total Degree Credits and Target CGPA above to see how many non-4.0 grades you can afford."
+            }
+          </p>
+          {gpaTolerance.length > 0 && (
+            <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
+              {gpaTolerance.map(({ grade, count, fourCount }) => {
+                const severity = grade >= 3.0 ? 'green' : grade >= 2.0 ? 'amber' : 'red';
+                const colors = {
+                  green: { bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-300 dark:border-emerald-700/50', badge: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200' },
+                  amber: { bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-300 dark:border-amber-700/50', badge: 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200' },
+                  red: { bg: 'bg-red-50 dark:bg-red-950/40', border: 'border-red-300 dark:border-red-700/50', badge: 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200' },
+                }[severity];
+
+                return (
+                  <div key={grade} className={`flex items-center gap-2 p-2.5 rounded-lg border ${colors.bg} ${colors.border} transition-all hover:scale-[1.01]`}>
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 text-[11px] font-bold font-mono shrink-0">
+                        {fourCount} <span className="text-[9px] font-semibold">× 4.0</span>
+                      </span>
+                      <span className="text-gray-600 dark:text-gray-300 text-[10px] font-medium">and</span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono shrink-0 ${colors.badge}`}>
+                        {count} <span className="text-[9px] font-semibold">× {grade.toFixed(1)}</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
