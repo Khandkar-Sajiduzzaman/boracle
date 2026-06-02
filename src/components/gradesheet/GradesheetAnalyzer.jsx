@@ -262,11 +262,12 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
     const remainingCourses = Math.floor(remainingCredits / CREDITS_PER_COURSE);
     if (remainingCourses <= 0) return [];
     const neededQualityPoints = degreeCreditsNumber * targetCgpaNumber - totalQualityPoints;
+    const margin = remainingCredits * 4.0 - neededQualityPoints;
     const results = [];
     for (const grade of GRADE_SCALE) {
       if (grade >= 4.0) continue;
       const gpaDiff = 4.0 - grade;
-      const maxN = Math.floor((remainingCourses * 4.0 * CREDITS_PER_COURSE - neededQualityPoints) / (gpaDiff * CREDITS_PER_COURSE));
+      const maxN = Math.floor(margin / (gpaDiff * CREDITS_PER_COURSE));
       if (maxN > 0 && maxN <= remainingCourses) {
         results.push({ grade, count: maxN, fourCount: remainingCourses - maxN });
       }
