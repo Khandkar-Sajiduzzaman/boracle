@@ -1,4 +1,5 @@
 export default async function RandomQuote() {
+    /* 
     const res = await fetch(`https://zenquotes.io/api/random`, {
         next: { revalidate: 3600 } // Revalidate every 3660 seconds
     });
@@ -21,4 +22,7 @@ export default async function RandomQuote() {
             </p>
         </div>
     );
+    */
+
+    return null;
 }
