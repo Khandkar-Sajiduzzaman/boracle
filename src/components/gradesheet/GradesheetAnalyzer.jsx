@@ -229,6 +229,8 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
   const totalQualityPoints = courses.reduce((sum, course) => sum + course.qualityPoints, 0);
   const newCgpa = totalCredits > 0 ? totalQualityPoints / totalCredits : 0;
 
+  const roundToTwoDecimals = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
+
   const originalTotalCredits = originalCourses.reduce((sum, course) => sum + course.credits, 0);
   const originalTotalQualityPoints = originalCourses.reduce((sum, course) => sum + course.qualityPoints, 0);
   const currentCgpa = originalTotalCredits > 0 ? originalTotalQualityPoints / originalTotalCredits : 0;
@@ -247,8 +249,8 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
   if (degreeCreditsNumber > 0) {
     remainingCredits = Math.max(0, degreeCreditsNumber - totalCredits);
     if (degreeCreditsNumber > totalCredits) {
-      maxReachableCgpa = (totalQualityPoints + remainingCredits * 4.0) / degreeCreditsNumber;
-      requiredAverageGpa = ((degreeCreditsNumber * targetCgpaNumber) - totalQualityPoints) / remainingCredits;
+      maxReachableCgpa = roundToTwoDecimals((totalQualityPoints + remainingCredits * 4.0) / degreeCreditsNumber);
+      requiredAverageGpa = roundToTwoDecimals(((degreeCreditsNumber * targetCgpaNumber) - totalQualityPoints) / remainingCredits);
       isTargetImpossible = requiredAverageGpa > 4.0;
     }
   }
