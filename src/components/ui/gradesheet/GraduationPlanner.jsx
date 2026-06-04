@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 export default function GraduationPlanner({
   targetDegreeCredits, setTargetDegreeCredits,
   targetCgpaValue, setTargetCgpaValue,
@@ -6,6 +8,62 @@ export default function GraduationPlanner({
   requiredAverageGpa, isTargetImpossible,
   gpaTolerance,
 }) {
+  const [isCgpaFlashActive, setIsCgpaFlashActive] = useState(false);
+  const flashTimeoutRef = useRef(null);
+
+  const clampTargetCgpa = (value) => {
+    if (value === "") return "";
+
+    const numericValue = Number(value);
+    if (Number.isNaN(numericValue)) return value;
+
+    return String(Math.min(4, Math.max(0, numericValue)));
+  };
+
+  const flashCgpaLimit = () => {
+    setIsCgpaFlashActive(true);
+
+    if (flashTimeoutRef.current) {
+      clearTimeout(flashTimeoutRef.current);
+    }
+
+    flashTimeoutRef.current = setTimeout(() => {
+      setIsCgpaFlashActive(false);
+      flashTimeoutRef.current = null;
+    }, 180);
+  };
+
+  useEffect(() => () => {
+    if (flashTimeoutRef.current) {
+      clearTimeout(flashTimeoutRef.current);
+    }
+  }, []);
+
+  const handleTargetCgpaChange = (value) => {
+    if (value === "") {
+      setTargetCgpaValue("");
+      return;
+    }
+
+    const numericValue = Number(value);
+    if (!Number.isNaN(numericValue) && (numericValue < 0 || numericValue > 4)) {
+      flashCgpaLimit();
+    }
+
+    setTargetCgpaValue(clampTargetCgpa(value));
+  };
+
+  const handleTargetCgpaKeyDown = (event) => {
+    const currentValue = Number(targetCgpaValue);
+    const isAtLowerLimit = !Number.isNaN(currentValue) && currentValue <= 0;
+    const isAtUpperLimit = !Number.isNaN(currentValue) && currentValue >= 4;
+
+    if ((event.key === "ArrowDown" && isAtLowerLimit) || (event.key === "ArrowUp" && isAtUpperLimit)) {
+      event.preventDefault();
+      flashCgpaLimit();
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-blue-50/50 dark:bg-blue-900/10">
@@ -30,10 +88,19 @@ export default function GraduationPlanner({
             <label className="block text-gray-500 dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">Target CGPA</label>
             <input 
               type="number" 
-              className="w-full bg-blue-50/50 dark:bg-blue-900/20 border border-blue-200/60 dark:border-blue-800/60 rounded-lg text-gray-900 dark:text-gray-100 text-sm px-3 py-2 outline-none font-mono focus:border-blue-500 transition-colors" 
+              min="0"
+              max="4"
+              step="0.1"
+              className={`w-full border rounded-lg text-gray-900 dark:text-gray-100 text-sm px-3 py-2 outline-none font-mono transition-all focus:border-blue-500 ${
+                isCgpaFlashActive
+                  ? "bg-red-50 dark:bg-red-950/30 border-red-400 dark:border-red-500 shadow-[0_0_0_3px_rgba(248,113,113,0.18)]"
+                  : "bg-blue-50/50 dark:bg-blue-900/20 border-blue-200/60 dark:border-blue-800/60"
+              }`} 
               placeholder="e.g. 3.50" 
               value={targetCgpaValue}
-              onChange={(e) => setTargetCgpaValue(e.target.value)}
+              onChange={(e) => handleTargetCgpaChange(e.target.value)}
+              onKeyDown={handleTargetCgpaKeyDown}
+              onBlur={(e) => setTargetCgpaValue(clampTargetCgpa(e.target.value))}
             />
           </div>
         </div>
