@@ -11,6 +11,28 @@ import CourseTable from "@/components/ui/gradesheet/CourseTable";
 import MetricsCard from "@/components/ui/gradesheet/MetricsCard";
 import GraduationPlanner from "@/components/ui/gradesheet/GraduationPlanner";
 
+const GRADE_POINT_SCALE = [0.0, 0.7, 1.0, 1.3, 1.7, 2.0, 2.3, 2.7, 3.0, 3.3, 3.7, 4.0];
+
+const snapGradePointToScale = (value) => {
+  if (value === "") return "";
+
+  const numericValue = Number(value);
+  if (Number.isNaN(numericValue)) return value;
+
+  let nearestGradePoint = GRADE_POINT_SCALE[0];
+  let smallestDistance = Math.abs(numericValue - nearestGradePoint);
+
+  for (const gradePoint of GRADE_POINT_SCALE) {
+    const distance = Math.abs(numericValue - gradePoint);
+    if (distance < smallestDistance) {
+      nearestGradePoint = gradePoint;
+      smallestDistance = distance;
+    }
+  }
+
+  return nearestGradePoint.toFixed(1);
+};
+
 export default function GradesheetAnalyzer({ allowSave = false, savedData = null }) {
   const { data: session } = useSession();
   const [courses, setCourses] = useState([]);
@@ -107,8 +129,9 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
   }, [showToastMessage]);
 
   const updateGradePoints = useCallback((index, value) => {
-    const parsedGradePoints = parseFloat(value);
-    if (isNaN(parsedGradePoints) || parsedGradePoints < 0 || parsedGradePoints > 4) return;
+    const snappedGradePoints = snapGradePointToScale(value);
+    const parsedGradePoints = parseFloat(snappedGradePoints);
+    if (isNaN(parsedGradePoints)) return;
 
     setCourses((prevCourses) => {
       const updatedCourses = [...prevCourses];
@@ -136,7 +159,7 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
   const addNewCourse = useCallback((newCourseInput) => {
     const courseCode = newCourseInput.code.trim().toUpperCase();
     const credits = parseFloat(newCourseInput.credits);
-    const gradePoints = parseFloat(newCourseInput.gp);
+    const gradePoints = parseFloat(snapGradePointToScale(newCourseInput.gp));
 
     if (!/^[A-Z]{2,4}\d{3}[A-Z]?[A-Z0-9]?$/.test(courseCode)) {
       showToastMessage("Invalid course code", "error");
@@ -356,6 +379,7 @@ export default function GradesheetAnalyzer({ allowSave = false, savedData = null
               onDeleteCourse={deleteCourse}
               onResetGrades={resetGrades}
               onAddCourse={addNewCourse}
+              gradePointScale={GRADE_POINT_SCALE}
             />
 
             <div className="flex flex-col gap-5 lg:sticky lg:top-24">
